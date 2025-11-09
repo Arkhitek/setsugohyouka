@@ -48,7 +48,7 @@
       <div class="guide-section">
   <h3>1️⃣ データ入力</h3>
   <p>
-    変形角 γ(rad) と 荷重 P(kN) を <strong>1行1データ</strong>で入力・貼り付けすると、
+    変形 γ(mm) と 荷重 P(kN) を <strong>1行1データ</strong>で入力・貼り付けすると、
     <strong>自動で解析</strong>が実行されます。<br/>
   「対象接合部」を選択すると <strong>特定変形・最大終局変位・C0</strong> が即時に反映されます。<br/>
     「評価対象包絡線（正/負）」も必要に応じて選択してください。
@@ -63,7 +63,7 @@
         <h3>2️⃣ 包絡線の編集</h3>
         <p><strong>点をクリック</strong>してダイアログで編集：</p>
         <ul>
-          <li><strong>数値変更</strong>：入力欄で変形角・荷重を編集（リアルタイム反映）</li>
+          <li><strong>数値変更</strong>：入力欄で変形・荷重を編集（リアルタイム反映）</li>
           <li><strong>点のドラッグ移動</strong>：<strong>Ctrl+Shift</strong>を押しながら点をドラッグすると座標を移動できます（ズーム/パンと干渉しません）</li>
           <li><strong>ライブ同期</strong>：ドラッグ中は編集ダイアログの <code>γ</code>・<code>P</code> 入力値も<strong>リアルタイム更新</strong>されます</li>
           <li><strong>点を追加</strong>：選択点と次の点の間に新しい点を挿入</li>
@@ -77,9 +77,9 @@
       <div class="guide-section">
         <h3>3️⃣ 結果確認</h3>
         <p>
-          壁倍率・特性値は表で確認できます。<br/>
+          特性値は表で確認できます。<br/>
           変位（δy・δv・δu）は<strong>1/◯ 形式</strong>で表示されます。<br/>
-          最終評価には <strong>Pa (kN/m)</strong> と <strong>Pu (kN/m)</strong> も併記します。<br/>
+          最終評価には <strong>Pa (kN)</strong> と <strong>Pu (kN)</strong> も併記します。<br/>
           保存は <strong>結果Excelダウンロード</strong> と <strong>結果レポート作成(PDF)</strong> が利用可能（PDFは1ページ出力）。
           これらのボタンは<strong>解析成功後に有効化</strong>されます。
         </p>
@@ -111,7 +111,7 @@
     <button id="clearDataButton">入力データ削除</button>
     
     <div class="paste-buttons" style="margin-top:10px;">
-      <button id="pasteGammaButton" type="button">変形角 γ 貼り付け</button>
+      <button id="pasteGammaButton" type="button">変形 γ 貼り付け</button>
       <button id="pasteBothButton" type="button">変形・荷重 同時貼り付け</button>
       <button id="pasteLoadButton" type="button">荷重 P 貼り付け</button>
     </div>
@@ -119,36 +119,29 @@
 
     <div class="row">
       <div class="control-group">
-        <label for="gammaInput">変形角 γ (rad) - 1行1データ</label>
+        <label for="gammaInput">変形 γ (mm) - 1行1データ</label>
         <textarea id="gammaInput" rows="8" placeholder="例: 数値以外の行は無視されます"></textarea>
-        <small>変形角データを1行に1つずつ入力</small>
+        <small>変形データを1行に1つずつ入力</small>
       </div>
       <div class="control-group">
         <label for="loadInput">荷重 P (kN) - 1行1データ</label>
         <textarea id="loadInput" rows="8" placeholder="例: γと同じ行数で入力"></textarea>
-        <small>荷重データを1行に1つずつ入力（変形角と同じ行数）</small>
+        <small>荷重データを1行に1つずつ入力（変形と同じ行数）</small>
       </div>
     </div>
 
     <div class="row">
       <div class="control-group">
-        <label for="wall_length_m">壁長さ L (m)</label>
-        <input type="number" id="wall_length_m" value="0.91" step="0.01" />
-        <small>壁倍率算定用</small>
-      </div>
-      <div class="control-group">
-        <label for="specific_deformation">特定変形時耐力の変形角 (1/入力値 rad)</label>
+        <label for="specific_deformation">特定変形時耐力の変形 (1/入力値 mm)</label>
         <input type="number" id="specific_deformation" value="120" step="1" min="1" />
-        <small>例: 120 → 1/120 rad</small>
+        <small>例: 120 → 1/120 mm</small>
       </div>
-    </div>
-
-    <div class="row">
       <div class="control-group">
         <label for="alpha_factor">耐力低減係数 α</label>
         <input type="number" id="alpha_factor" value="0.9" step="0.01" min="0" max="1" />
         <small>耐久性・施工性等の影響を勘案</small>
       </div>
+    </div>
       <div class="control-group">
         <label for="max_ultimate_deformation">終局変位の最大値 (1/入力値 rad)</label>
         <input type="number" id="max_ultimate_deformation" value="15" step="1" min="1" />
@@ -213,7 +206,7 @@
         ヒント: プロット上で<strong>Ctrl+Shift</strong>を押しながら点をドラッグすると移動できます。
         ドラッグ中は下の入力欄の <code>γ</code>・<code>P</code> もリアルタイムに連動更新されます。
       </p>
-      <label>変形角 γ (rad): <input type="number" id="edit_gamma" step="0.0001" /></label>
+      <label>変形 γ (mm): <input type="number" id="edit_gamma" step="0.0001" /></label>
       <label>荷重 P (kN): <input type="number" id="edit_load" step="0.1" /></label>
       <div class="modal-actions">
         <button id="addPointEdit" class="add">点を追加</button>
@@ -257,9 +250,6 @@
     <table id="results-table-final">
       <tbody id="resultsFinal">
         <tr><td>短期許容せん断耐力 Pa = P0×α (kN)</td><td id="val_pa">-</td></tr>
-        <tr><td>短期許容せん断耐力 Pa (kN/m)</td><td id="val_pa_per_m">-</td></tr>
-        <tr><td>終局耐力 Pu (kN/m)</td><td id="val_pu_per_m">-</td></tr>
-        <tr class="highlight final"><td>壁倍率 = Pa/(L×1.96)</td><td id="val_magnification">-</td></tr>
       </tbody>
     </table>
   </div>

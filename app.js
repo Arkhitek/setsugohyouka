@@ -21,7 +21,6 @@
   const loadInput = document.getElementById('loadInput');
   const pasteGammaButton = document.getElementById('pasteGammaButton');
   const pasteLoadButton = document.getElementById('pasteLoadButton');
-  const wall_length_m = document.getElementById('wall_length_m');
   const specific_deformation = document.getElementById('specific_deformation');
   const alpha_factor = document.getElementById('alpha_factor');
   const max_ultimate_deformation = document.getElementById('max_ultimate_deformation');
@@ -465,7 +464,7 @@
   // 手動ボタン削除済み: processButton クリックイベント不要
 
   // パラメータ変更時の自動解析
-  const autoInputs = [wall_length_m, specific_deformation, alpha_factor, max_ultimate_deformation, c0_factor];
+  const autoInputs = [specific_deformation, alpha_factor, max_ultimate_deformation, c0_factor];
   autoInputs.forEach(el => {
     if(!el) return;
     el.addEventListener('input', () => { if(rawData && rawData.length>=3) scheduleAutoRun(); });
@@ -509,7 +508,7 @@
   redoStack = [];
     plotDiv.innerHTML = '';
     // 結果表示リセット
-  ['val_pmax','val_py','val_dy','val_K','val_pu','val_dv','val_du','val_mu','val_ds','val_p0_a','val_p0_b','val_p0_c','val_p0_d','val_p0','val_pa','val_pa_per_m','val_pu_per_m','val_magnification'].forEach(id=>{
+  ['val_pmax','val_py','val_dy','val_K','val_pu','val_dv','val_du','val_mu','val_ds','val_p0_a','val_p0_b','val_p0_c','val_p0_d','val_p0','val_pa'].forEach(id=>{
       const el = document.getElementById(id); if(el) el.textContent='-';
     });
   }
@@ -555,8 +554,7 @@
                 <col style="width:60%">
                 <col style="width:40%">
               </colgroup>
-              <tr style="border-bottom:1px solid #ccc;"><td style="padding:6px 8px;">壁長さ L (m)</td><td style="text-align:right; padding:6px 8px;">${wall_length_m.value}</td></tr>
-              <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">特定変形角</td><td style="text-align:right; padding:6px 8px;">1/${Number(specific_deformation.value).toLocaleString('ja-JP')}</td></tr>
+              <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">特定変形</td><td style="text-align:right; padding:6px 8px;">1/${Number(specific_deformation.value).toLocaleString('ja-JP')}</td></tr>
               <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">最大終局変位</td><td style="text-align:right; padding:6px 8px;">1/${Number(max_ultimate_deformation.value).toLocaleString('ja-JP')}</td></tr>
               <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">C0</td><td style="text-align:right; padding:6px 8px;">${c0_factor.value}</td></tr>
               <tr style="border-bottom:1px solid #ccc;"><td style="padding:6px 8px;">α</td><td style="text-align:right; padding:6px 8px;">${alpha_factor.value}</td></tr>
@@ -572,7 +570,6 @@
               <tr style="border-bottom:1px solid #ccc;"><td style="padding:6px 8px;">Pmax (kN)</td><td style="text-align:right; padding:6px 8px;">${r.Pmax?.toFixed(3) ?? '-'}</td></tr>
               <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">Py (kN)</td><td style="text-align:right; padding:6px 8px;">${r.Py?.toFixed(3) ?? '-'}</td></tr>
               <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">Pu (kN)</td><td style="text-align:right; padding:6px 8px;">${r.Pu?.toFixed(3) ?? '-'}</td></tr>
-              <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">Pu (kN/m)</td><td style="text-align:right; padding:6px 8px;">${(function(){const L=parseFloat(wall_length_m.value);return (isFinite(L)&&L>0&&r.Pu)?(r.Pu/L).toFixed(3):'-';})()}</td></tr>
               <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">δv</td><td style="text-align:right; padding:6px 8px;">${fmt1(r.delta_v)}</td></tr>
               <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">δu</td><td style="text-align:right; padding:6px 8px;">${fmt1(r.delta_u)}</td></tr>
               <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">μ</td><td style="text-align:right; padding:6px 8px;">${r.mu?.toFixed(2) ?? '-'}</td></tr>
@@ -582,9 +579,7 @@
               <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">P0(c)</td><td style="text-align:right; padding:6px 8px;">${r.p0_c?.toFixed(3) ?? '-'}</td></tr>
               <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">P0(d)</td><td style="text-align:right; padding:6px 8px;">${r.p0_d?.toFixed(3) ?? '-'}</td></tr>
               <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">P0</td><td style="text-align:right; padding:6px 8px;">${r.P0?.toFixed(3) ?? '-'}</td></tr>
-              <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">Pa (kN)</td><td style="text-align:right; padding:6px 8px;">${r.Pa?.toFixed(3) ?? '-'}</td></tr>
-              <tr style="border-bottom:1px solid #ccc;"><td style="padding:6px 8px;">Pa (kN/m)</td><td style="text-align:right; padding:6px 8px;">${(function(){const L=parseFloat(wall_length_m.value);return (isFinite(L)&&L>0&&r.Pa)?(r.Pa/L).toFixed(3):'-';})()}</td></tr>
-              <tr style="border-bottom:1px solid #ccc;"><td style="padding:6px 8px; font-weight:bold;">壁倍率</td><td style="text-align:right; padding:6px 8px; font-weight:bold;">${r.magnification_rounded?.toFixed(1) ?? '-'}</td></tr>
+              <tr style="border-bottom:1px solid #ccc;"><td style="padding:6px 8px;">Pa (kN)</td><td style="text-align:right; padding:6px 8px;">${r.Pa?.toFixed(3) ?? '-'}</td></tr>
             </table>
           </div>
         </div>
@@ -1043,14 +1038,13 @@
   // === Direct Input Processing ===
   function processDataDirect(){
     try{
-      const L = parseFloat(wall_length_m.value);
       const alpha = parseFloat(alpha_factor.value);
       const c0 = parseFloat(c0_factor.value);
       const side = envelope_side.value;
       const specificDeformationValue = parseFloat(specific_deformation.value);
       const maxUltimateDeformationValue = parseFloat(max_ultimate_deformation.value);
 
-      if(!isFinite(L) || !isFinite(alpha) || !isFinite(c0) || c0 < 0 || !isFinite(specificDeformationValue) || specificDeformationValue <= 0 || !isFinite(maxUltimateDeformationValue) || maxUltimateDeformationValue <= 0){
+      if(!isFinite(alpha) || !isFinite(c0) || c0 < 0 || !isFinite(specificDeformationValue) || specificDeformationValue <= 0 || !isFinite(maxUltimateDeformationValue) || maxUltimateDeformationValue <= 0){
         console.warn('入力値が不正です');
         return;
       }
@@ -1068,7 +1062,7 @@
         return;
       }
       // Calculate characteristic points using full envelope (精度優先)
-      analysisResults = calculateJTCCMMetrics(fullEnvelope, gamma_specific, delta_u_max, L, alpha, c0);
+      analysisResults = calculateJTCCMMetrics(fullEnvelope, gamma_specific, delta_u_max, alpha, c0);
 
       // After metrics, thin for display preserving δy, δu, γs, loop peaks
       let displayEnvelope = fullEnvelope;
@@ -1393,7 +1387,7 @@
   }
 
   // === JTCCM Metrics Calculation (Sections III, IV, V) ===
-  function calculateJTCCMMetrics(envelope, gamma_specific, delta_u_max, L, alpha, c0){
+  function calculateJTCCMMetrics(envelope, gamma_specific, delta_u_max, alpha, c0){
     const results = {};
 
     // Store gamma_specific for later use in rendering
@@ -1479,10 +1473,8 @@
     const P0_result = calculateP0(results, envelope, gamma_specific, c0);
     Object.assign(results, P0_result);
 
-    // Calculate Pa and Magnification (Section V.2, V.3)
+    // Calculate Pa (Section V.2)
     results.Pa = results.P0 * alpha;
-    results.magnification = results.Pa / (L * 1.96);
-    results.magnification_rounded = Math.floor(results.magnification * 10) / 10; // Round down to 0.1
 
     return results;
   }
@@ -1612,7 +1604,7 @@
 
   // === Pu and μ Calculation (Energy Equivalent - Section IV) ===
   function calculatePu_EnergyEquivalent(envelope, Py, Pmax, delta_u_max, fixed_delta_u){
-    // δy は包絡線とLineIV(Py水平線)の交点の変形角
+    // δy は包絡線とLineIV(Py水平線)の交点の変形
     // 包絡線上で |Load| が Py に最も近い点、または線形補間でPyを横切る点のγ
     let delta_y = 0;
     try{
@@ -1931,7 +1923,7 @@
         symbol: 'circle', 
         line: {color: 'white', width: 2}
       },
-      hovertemplate: '<b>変形角:</b> %{x:.6f}<br><b>荷重:</b> %{y:.3f}<br><i>クリックで編集、Delキーで削除</i><extra></extra>'
+      hovertemplate: '<b>変形:</b> %{x:.6f}<br><b>荷重:</b> %{y:.3f}<br><i>クリックで編集、Delキーで削除</i><extra></extra>'
     };
 
     // Line I, II, III (Py determination)
@@ -2017,7 +2009,7 @@
       });
     }
     
-    // γs 縦補助線（特定変形時の変形角）: layout.shapes で描画
+    // γs 縦補助線（特定変形時の変形）: layout.shapes で描画
     if(results.gamma_specific && Number.isFinite(results.gamma_specific)){
       const x_gs = results.gamma_specific * envelopeSign;
       shapes.push({
@@ -2035,7 +2027,7 @@
     const layout = {
       title: '荷重-変形関係と評価直線',
       xaxis: {
-        title: '変形角 γ (rad)',
+        title: '変形 γ (mm)',
         range: xRangeSafe,
         autorange: false
       },
@@ -2060,7 +2052,7 @@
       annotations: (function(){
         const annMode = show_annotations ? show_annotations.value : 'all';
         const allAnnotations = [
-        // 終局変位 δu (rad) → Line VI の終点（delta_u の位置）に表示
+        // 終局変位 δu (mm) → Line VI の終点（delta_u の位置）に表示
         {
           x: (lineVI.gamma_end) * envelopeSign,
           y: (lineVI.Load) * envelopeSign,
@@ -2073,7 +2065,7 @@
           bordercolor: 'purple', borderwidth: 1
         },
         
-        // 降伏変位 δy (rad) → 包絡線とLineIV交点に表示
+        // 降伏変位 δy (mm) → 包絡線とLineIV交点に表示
         {
           x: (results.delta_y) * envelopeSign,
           y: (Py) * envelopeSign,
@@ -2109,7 +2101,7 @@
           bgcolor: 'rgba(255,255,255,0.7)',
           bordercolor: 'purple', borderwidth: 1
         },
-        // 降伏点変位 δv (rad) → Line V の終点（delta_v の位置）に表示
+        // 降伏点変位 δv (mm) → Line V の終点（delta_v の位置）に表示
         {
           x: (lineV.end.gamma) * envelopeSign,
           y: (lineV.end.Load) * envelopeSign,
@@ -2133,7 +2125,7 @@
           bgcolor: 'rgba(255,255,255,0.7)',
           bordercolor: 'red', borderwidth: 1
         },
-        // 特定変形角 γs (rad) → グラフ上部に表示
+        // 特定変形 γs (mm) → グラフ上部に表示
         {
           x: (results.gamma_specific) * envelopeSign,
           y: yRangeSafe[1] * envelopeSign * 0.95,
@@ -2845,18 +2837,17 @@
       // 編集後の包絡線から特性値を再計算
       envelopeData = editableEnvelope.map(pt => ({...pt}));
       
-      const L = parseFloat(wall_length_m.value);
       const alpha = parseFloat(alpha_factor.value);
       const c0 = parseFloat(c0_factor.value);
       const specificDeformationValue = parseFloat(specific_deformation.value);
       const maxUltimateDeformationValue = parseFloat(max_ultimate_deformation.value);
       
-      if(!isFinite(L) || !isFinite(alpha) || !isFinite(c0) || c0 < 0 || !isFinite(specificDeformationValue) || specificDeformationValue <= 0 || !isFinite(maxUltimateDeformationValue) || maxUltimateDeformationValue <= 0) return;
+      if(!isFinite(alpha) || !isFinite(c0) || c0 < 0 || !isFinite(specificDeformationValue) || specificDeformationValue <= 0 || !isFinite(maxUltimateDeformationValue) || maxUltimateDeformationValue <= 0) return;
       
       const gamma_specific = 1.0 / specificDeformationValue;
       const delta_u_max = 1.0 / maxUltimateDeformationValue;
       
-      analysisResults = calculateJTCCMMetrics(envelopeData, gamma_specific, delta_u_max, L, alpha, c0);
+      analysisResults = calculateJTCCMMetrics(envelopeData, gamma_specific, delta_u_max, alpha, c0);
       renderResults(analysisResults);
       
       // 評価直線などを再描画
@@ -2912,18 +2903,6 @@
     document.getElementById('val_p0').textContent = r.P0.toFixed(3);
 
     document.getElementById('val_pa').textContent = r.Pa.toFixed(3);
-    // 1m当たり (kN/m)
-    const Lval = parseFloat(wall_length_m.value);
-    const paPerEl = document.getElementById('val_pa_per_m');
-    const puPerEl = document.getElementById('val_pu_per_m');
-    if(isFinite(Lval) && Lval>0){
-      if(paPerEl) paPerEl.textContent = (r.Pa / Lval).toFixed(3);
-      if(puPerEl) puPerEl.textContent = (r.Pu / Lval).toFixed(3);
-    } else {
-      if(paPerEl) paPerEl.textContent = '-';
-      if(puPerEl) puPerEl.textContent = '-';
-    }
-    document.getElementById('val_magnification').textContent = r.magnification_rounded.toFixed(1) + ' 倍';
   }
 
   async function downloadExcel(){
@@ -2962,7 +2941,6 @@
       const r = analysisResults;
       wsSummary.addRow(['項目','値','単位']);
       wsSummary.addRow(['試験体名称', specimen, '']);
-      const Lval2 = parseFloat(wall_length_m.value);
       const rows = [
         ['最大耐力 Pmax', r.Pmax, 'kN'],
         ['降伏耐力 Py', r.Py, 'kN'],
@@ -2974,13 +2952,10 @@
         ['P0(a) 降伏耐力', r.p0_a, 'kN'],
         ['P0(b) 靭性基準', r.p0_b, 'kN'],
         ['P0(c) 最大耐力基準', r.p0_c, 'kN'],
-  // (d) 特定変形時耐力: 設定した reciprocal 変形角を明示 (例: γ=1/200rad)
-  [ `P0(d) 特定変形時 γ=1/${Number(specific_deformation.value)}rad P`, r.p0_d, 'kN' ],
+  // (d) 特定変形時耐力: 設定した reciprocal 変形を明示 (例: γ=1/200mm)
+  [ `P0(d) 特定変形時 γ=1/${Number(specific_deformation.value)}mm P`, r.p0_d, 'kN' ],
         ['短期基準せん断耐力 P0', r.P0, 'kN'],
-        ['短期許容せん断耐力 Pa', r.Pa, 'kN'],
-        ['短期許容せん断耐力 Pa (kN/m)', (isFinite(Lval2)&&Lval2>0)? r.Pa/Lval2 : '-', 'kN/m'],
-        ['終局耐力 Pu (kN/m)', (isFinite(Lval2)&&Lval2>0)? r.Pu/Lval2 : '-', 'kN/m'],
-        ['壁倍率', r.magnification_rounded, '倍']
+        ['短期許容せん断耐力 Pa', r.Pa, 'kN']
       ];
       rows.forEach(row => wsSummary.addRow(row));
       wsSummary.columns.forEach(col => { col.width = 22; });
@@ -2991,7 +2966,6 @@
         if(typeof cell.value !== 'number') continue;
         if(wsSummary.getCell(i,3).value === '1/n') continue; // reciprocalは文字列のまま
         else if(label === '初期剛性 K') cell.numFmt = '#,##0.00';
-        else if(label === '壁倍率') cell.numFmt = '0.0';
         else cell.numFmt = '#,##0.000';
       }
 
