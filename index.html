@@ -183,9 +183,12 @@
       <label>変形 δ (mm): <input type="number" id="edit_gamma" step="0.0001" /></label>
       <label>荷重 P (kN): <input type="number" id="edit_load" step="0.1" /></label>
       <div class="modal-actions" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; align-items:stretch;">
-        <button id="toggleDragMove" type="button" style="width:100%">マウスドラッグ移動ON</button>
+        <!-- 1行目 -->
+        <button id="toggleDragMove" type="button" style="grid-column:1 / span 2; width:100%">マウスドラッグ移動ON</button>
+        <!-- 2行目 -->
         <button id="addPointEdit" class="add" style="width:100%">点を追加</button>
         <button id="deletePointEdit" class="danger" style="width:100%">削除</button>
+        <!-- 3行目 -->
         <button id="applyPointEdit" style="width:100%">適用</button>
         <button id="cancelPointEdit" style="width:100%">キャンセル</button>
       </div>
