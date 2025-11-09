@@ -49,6 +49,10 @@
   let dragMoveEnabled = false;
   // 範囲選択モード（ONの間はBox/Lassoを有効化し、削除ボタンで複数削除）
   let rangeSelectEnabled = false;
+  // 複数選択インデックスのグローバル共有（削除ボタンから参照するため）
+  if(typeof window !== 'undefined' && typeof window._selectedEnvelopePoints === 'undefined'){
+    window._selectedEnvelopePoints = [];
+  }
 
   // 履歴管理 (Undo/Redo)
   let historyStack = [];
@@ -268,10 +272,34 @@
   const deletePointEditButton = document.getElementById('deletePointEdit');
   if(deletePointEditButton){
     deletePointEditButton.onclick = function(){
-      if(window._selectedEnvelopePoint >= 0){
+      // 優先: 範囲選択で複数点が選ばれている場合は一括削除
+      const sel = Array.isArray(window._selectedEnvelopePoints) ? window._selectedEnvelopePoints.slice() : [];
+      if(rangeSelectEnabled && sel.length > 0 && Array.isArray(envelopeData)){
+        // 残点が2点未満にならないように保護
+        const remaining = envelopeData.length - sel.length;
+        if(remaining < 2){
+          alert('包絡線には最低2点が必要です。削除できません。');
+          return;
+        }
+        // 変更前履歴
+        pushHistory(envelopeData);
+        // 降順で安全に削除
+        sel.sort((a,b)=>b-a).forEach(idx => {
+          if(idx >= 0 && idx < envelopeData.length){ envelopeData.splice(idx,1); }
+        });
+        // 状態クリア
+        window._selectedEnvelopePoints = [];
+        window._selectedEnvelopePoint = -1;
+        // 再計算・再描画
+        recalculateFromEnvelope(envelopeData);
+        appendLog(`包絡線点 ${sel.length}個 をボタンから一括削除しました`);
+        closePointEditDialog();
+        return;
+      }
+      // 単一点選択の通常削除
+      if(window._selectedEnvelopePoint >= 0 && Array.isArray(envelopeData)){
         deleteEnvelopePoint(window._selectedEnvelopePoint, envelopeData);
         window._selectedEnvelopePoint = -1;
-        renderPlot(envelopeData, analysisResults);
         closePointEditDialog();
       }
     };
