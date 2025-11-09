@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>接合部性能評価プログラム</title>
+  <link rel="icon" type="image/png" href="houraku.png" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.plot.ly/plotly-2.31.0.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/papaparse/5.4.1/papaparse.min.js"></script>
+  <!-- jsPDF for PDF export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+  <!-- ExcelJS: SRIは環境差で失敗することがあるため integrity を外し、動的フォールバックを用意 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js" crossorigin="anonymous"></script>
+  <script>
+    // フォールバック: ExcelJSが読み込めなければ jsDelivr から再読込
+    (function(){
+      function ensureExcelJS(){
+        if(window.ExcelJS) return;
+        var s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js';
+        s.onload = function(){ console.info('ExcelJS loaded via jsDelivr fallback'); };
+        s.onerror = function(){ console.warn('ExcelJS fallback load failed'); };
+        document.head.appendChild(s);
+      }
+      // DOM準備後にチェック
+      if(document.readyState === 'loading'){
+        document.addEventListener('DOMContentLoaded', ensureExcelJS);
+      } else {
+        ensureExcelJS();
+      }
+    })();
+  </script>
+</head>
+<body>
+    <header class="header" role="banner">
+      <div class="header-inner">
+        <div id="brandLogo" aria-label="Arkhitek ロゴ"></div>
+      </div>
+    </header>
+  <h1>接合部性能評価プログラム</h1>
+  <p class="subtitle">接合部及びその倍率の試験・評価業務方法書に準拠</p>
+
+  <div id="guide" class="card guide">
+    <h2>📖 操作ガイド</h2>
+    <div class="guide-content">
+      <div class="guide-section">
+  <h3>1️⃣ データ入力</h3>
+  <p>
+    変形角 γ(rad) と 荷重 P(kN) を <strong>1行1データ</strong>で入力・貼り付けすると、
+    <strong>自動で解析</strong>が実行されます。<br/>
+  「対象接合部」を選択すると <strong>特定変形・最大終局変位・C0</strong> が即時に反映されます。<br/>
+    「評価対象包絡線（正/負）」も必要に応じて選択してください。
+  </p>
+  <ul>
+    <li>γ と P は<strong>同じ行数</strong>で入力してください（数値以外の行は無視）</li>
+    <li>CSV の貼り付けに対応しています（列ごとにそれぞれの欄へ）</li>
+    <li>入力・選択の変更は<strong>短い待ち時間後に自動解析</strong>されます</li>
+  </ul>
+      </div>
+      <div class="guide-section">
+        <h3>2️⃣ 包絡線の編集</h3>
+        <p><strong>点をクリック</strong>してダイアログで編集：</p>
+        <ul>
+          <li><strong>数値変更</strong>：入力欄で変形角・荷重を編集（リアルタイム反映）</li>
+          <li><strong>点のドラッグ移動</strong>：<strong>Ctrl+Shift</strong>を押しながら点をドラッグすると座標を移動できます（ズーム/パンと干渉しません）</li>
+          <li><strong>ライブ同期</strong>：ドラッグ中は編集ダイアログの <code>γ</code>・<code>P</code> 入力値も<strong>リアルタイム更新</strong>されます</li>
+          <li><strong>点を追加</strong>：選択点と次の点の間に新しい点を挿入</li>
+          <li><strong>削除</strong>：選択点を削除（最低2点は残ります）</li>
+          <li><strong>適用</strong>：変更を確定（元に戻す/やり直しが可能）</li>
+          <li><strong>キャンセル</strong>：変更を破棄して元の値に戻す</li>
+          <li><strong>表示/操作</strong>：ダイアログは<strong>画面右端</strong>に表示。ヘッダーのドラッグで移動可能</li>
+          <li><strong>Undo/Redo</strong>：編集履歴に対して<strong>Undo/Redo</strong>ボタンが使えます</li>
+        </ul>
+      </div>
+      <div class="guide-section">
+        <h3>3️⃣ 結果確認</h3>
+        <p>
+          壁倍率・特性値は表で確認できます。<br/>
+          変位（δy・δv・δu）は<strong>1/◯ 形式</strong>で表示されます。<br/>
+          最終評価には <strong>Pa (kN/m)</strong> と <strong>Pu (kN/m)</strong> も併記します。<br/>
+          保存は <strong>結果Excelダウンロード</strong> と <strong>結果レポート作成(PDF)</strong> が利用可能（PDFは1ページ出力）。
+          これらのボタンは<strong>解析成功後に有効化</strong>されます。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div id="controls" class="card">
+    <h2>1. 試験データの入力</h2>
+    <div class="row">
+      <div class="control-group">
+  <label for="wall_preset">対象接合部</label>
+        <select id="wall_preset">
+          <option value="">選択してください</option>
+          <option value="wood_loaded">木造(載荷式/無載荷式)</option>
+          <option value="wood_tierod">木造(タイロッド式)</option>
+          <option value="lgs_true">薄板軽量形鋼造(真のせん断変形角で評価)</option>
+          <option value="lgs_apparent">薄板軽量形鋼造(みかけのせん断変形角で評価)</option>
+        </select>
+        <small>選択すると、特定変形・最大終局変形・C0が即座に反映されます</small>
+      </div>
+      <div class="control-group">
+        <label for="specimen_name">試験体名称</label>
+        <input type="text" id="specimen_name" value="testname" placeholder="例: 試験体A" />
+        <small>レポート・Excel内およびファイル名に使用されます</small>
+      </div>
+    </div>
+    
+    <button id="clearDataButton">入力データ削除</button>
+    
+    <div class="paste-buttons" style="margin-top:10px;">
+      <button id="pasteGammaButton" type="button">変形角 γ 貼り付け</button>
+      <button id="pasteBothButton" type="button">変形・荷重 同時貼り付け</button>
+      <button id="pasteLoadButton" type="button">荷重 P 貼り付け</button>
+    </div>
+    <small style="display:block; margin-top:4px; color:#666;">Excel等から γ, P 2列コピー → 「変形・荷重 同時貼り付け」ボタン</small>
+
+    <div class="row">
+      <div class="control-group">
+        <label for="gammaInput">変形角 γ (rad) - 1行1データ</label>
+        <textarea id="gammaInput" rows="8" placeholder="例: 数値以外の行は無視されます"></textarea>
+        <small>変形角データを1行に1つずつ入力</small>
+      </div>
+      <div class="control-group">
+        <label for="loadInput">荷重 P (kN) - 1行1データ</label>
+        <textarea id="loadInput" rows="8" placeholder="例: γと同じ行数で入力"></textarea>
+        <small>荷重データを1行に1つずつ入力（変形角と同じ行数）</small>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="control-group">
+        <label for="wall_length_m">壁長さ L (m)</label>
+        <input type="number" id="wall_length_m" value="0.91" step="0.01" />
+        <small>壁倍率算定用</small>
+      </div>
+      <div class="control-group">
+        <label for="specific_deformation">特定変形時耐力の変形角 (1/入力値 rad)</label>
+        <input type="number" id="specific_deformation" value="120" step="1" min="1" />
+        <small>例: 120 → 1/120 rad</small>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="control-group">
+        <label for="alpha_factor">耐力低減係数 α</label>
+        <input type="number" id="alpha_factor" value="0.9" step="0.01" min="0" max="1" />
+        <small>耐久性・施工性等の影響を勘案</small>
+      </div>
+      <div class="control-group">
+        <label for="max_ultimate_deformation">終局変位の最大値 (1/入力値 rad)</label>
+        <input type="number" id="max_ultimate_deformation" value="15" step="1" min="1" />
+        <small>例: 15 → 1/15 rad</small>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="control-group">
+        <label for="c0_factor">靭性基準係数 C0</label>
+        <input type="number" id="c0_factor" value="0.2" step="0.01" min="0" />
+        <small>靭性基準の計算に使用する係数</small>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <label for="envelope_side">評価対象包絡線</label>
+      <select id="envelope_side">
+        <option value="positive">正側</option>
+        <option value="negative">負側</option>
+      </select>
+    </div>
+
+  <!-- 自動解析に移行のため手動実行ボタンを削除 -->
+    <div class="row">
+      <div class="control-group">
+        <button id="undoButton" disabled>Undo (Ctrl+Z)</button>
+      </div>
+      <div class="control-group">
+        <button id="redoButton" disabled>Redo (Ctrl+Y)</button>
+      </div>
+    </div>
+
+    <div class="center-button">
+      <button id="downloadExcelButton" class="download" disabled>結果Excelダウンロード</button>
+      <button id="generatePdfButton" class="download" disabled>結果レポート作成(PDF)</button>
+    </div>
+  </div>
+
+  <div id="plot" class="card"></div>
+
+  <div class="card" style="padding: 15px;">
+    <div class="control-group">
+      <label for="show_annotations">グラフ注釈表示</label>
+      <select id="show_annotations">
+        <option value="all">すべて表示</option>
+        <option value="main" selected>主要のみ（Pmax, Py, Pu, δy, δv, δu）</option>
+        <option value="p0only">P0基準のみ</option>
+        <option value="none">非表示</option>
+      </select>
+    </div>
+  </div>
+  
+  <!-- ツールチップと数値調整ダイアログ -->
+  <div id="pointTooltip" class="tooltip" style="display:none; position:absolute;"></div>
+  <div id="pointEditDialog" class="modal" style="display:none;">
+    <div class="modal-content" id="pointEditContent">
+      <div class="modal-header drag-handle" style="cursor:move; user-select:none;">
+        <h3 style="margin:0;">点の座標を編集</h3>
+      </div>
+      <p style="margin:8px 0 0; color:#666; font-size:12px;">
+        ヒント: プロット上で<strong>Ctrl+Shift</strong>を押しながら点をドラッグすると移動できます。
+        ドラッグ中は下の入力欄の <code>γ</code>・<code>P</code> もリアルタイムに連動更新されます。
+      </p>
+      <label>変形角 γ (rad): <input type="number" id="edit_gamma" step="0.0001" /></label>
+      <label>荷重 P (kN): <input type="number" id="edit_load" step="0.1" /></label>
+      <div class="modal-actions">
+        <button id="addPointEdit" class="add">点を追加</button>
+        <button id="deletePointEdit" class="danger">削除</button>
+        <button id="applyPointEdit">適用</button>
+        <button id="cancelPointEdit">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="results" class="card">
+    <h2>解析結果</h2>
+    
+    <h3>基礎性能値</h3>
+    <table id="results-table-basic">
+      <tbody id="resultsBasic">
+        <tr><td>最大耐力 Pmax (kN)</td><td id="val_pmax">-</td></tr>
+        <tr><td>降伏耐力 Py (kN)</td><td id="val_py">-</td></tr>
+  <tr><td>降伏変位 δy</td><td id="val_dy">-</td></tr>
+        <tr><td>初期剛性 K (kN/rad)</td><td id="val_K">-</td></tr>
+        <tr><td>終局耐力 Pu (kN)</td><td id="val_pu">-</td></tr>
+  <tr><td>降伏点変位 δv</td><td id="val_dv">-</td></tr>
+  <tr><td>終局変位 δu</td><td id="val_du">-</td></tr>
+        <tr><td>塑性率 μ</td><td id="val_mu">-</td></tr>
+        <tr><td>構造特性係数 Ds (1/√(2μ-1))</td><td id="val_ds">-</td></tr>
+      </tbody>
+    </table>
+
+    <h3>短期基準せん断耐力 P0 の算定根拠</h3>
+    <table id="results-table-p0">
+      <tbody id="resultsP0">
+        <tr><td>(a) 降伏耐力 Py (kN)</td><td id="val_p0_a">-</td></tr>
+        <tr><td>(b) 靭性基準 Pu/(1/√(2μ-1))×C0 (kN)</td><td id="val_p0_b">-</td></tr>
+        <tr><td>(c) 最大耐力基準 Pmax×2/3 (kN)</td><td id="val_p0_c">-</td></tr>
+  <tr><td>(d) 特定変形時耐力 γ=1/<span id="label_specific_deformation">---</span>rad P (kN)</td><td id="val_p0_d">-</td></tr>
+        <tr class="highlight"><td>短期基準せん断耐力 P0 = Min(a,b,c,d) (kN)</td><td id="val_p0">-</td></tr>
+      </tbody>
+    </table>
+
+    <h3>最終評価</h3>
+    <table id="results-table-final">
+      <tbody id="resultsFinal">
+        <tr><td>短期許容せん断耐力 Pa = P0×α (kN)</td><td id="val_pa">-</td></tr>
+        <tr><td>短期許容せん断耐力 Pa (kN/m)</td><td id="val_pa_per_m">-</td></tr>
+        <tr><td>終局耐力 Pu (kN/m)</td><td id="val_pu_per_m">-</td></tr>
+        <tr class="highlight final"><td>壁倍率 = Pa/(L×1.96)</td><td id="val_magnification">-</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 包絡線概念図を最下段に表示 -->
+  <div id="footer-image" style="text-align:center; margin:40px auto 20px;">
+    <img src="houraku.png" alt="包絡線概念図" style="width:100%; height:auto; border:1px solid #ddd; border-radius:4px;" />
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    // 設定: 必要に応じてPNGロゴとExcelテンプレートの使用を切替（デフォルトはどちらもfalse）
+    window.APP_CONFIG = Object.assign({
+  usePngLogo: true, // 新ロゴPNGを優先表示
+      useExcelTemplate: false,
+      logoLink: 'https://arkhitek.co.jp/'
+    }, window.APP_CONFIG || {});
+
+    // ロゴ: PNG優先表示＋クリックで公式サイト新規タブ。失敗時SVG→テキスト。
+    (function(){
+      const el = document.getElementById('brandLogo');
+      if(!el) return;
+      const cfg = window.APP_CONFIG || {};
+      const usePng = !!cfg.usePngLogo;
+      const linkUrl = cfg.logoLink || 'https://arkhitek.co.jp/';
+      function mountImage(src){
+        const a = document.createElement('a');
+        a.href = linkUrl;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        const img = document.createElement('img');
+        img.className = 'header-logo';
+        img.alt = 'Arkhitek ロゴ';
+        img.src = src;
+        a.appendChild(img);
+        el.textContent = '';
+        el.appendChild(a);
+      }
+      function mountTextFallback(){
+        const a = document.createElement('a');
+        a.href = linkUrl; a.target='_blank'; a.rel='noopener noreferrer';
+        const span = document.createElement('span');
+        span.textContent = 'ARKHITEK';
+        span.style.fontWeight = 'bold';
+        span.style.fontSize = '20px';
+        span.style.letterSpacing = '2px';
+        a.appendChild(span);
+        el.textContent='';
+        el.appendChild(a);
+      }
+      // 1段目: PNG
+      if(usePng){
+        const testPng = new Image();
+  testPng.onload = () => { mountImage('./arkhitek-logo.png'); console.info('PNG logo loaded'); };
+        testPng.onerror = () => {
+          console.warn('PNG logo missing. Fallback to SVG');
+          // 2段目: SVG
+          const testSvg = new Image();
+          testSvg.onload = () => { mountImage('./logo_arkhitek.svg'); console.info('SVG logo loaded'); };
+          testSvg.onerror = () => { console.warn('SVG logo also missing. Using text fallback'); mountTextFallback(); };
+          testSvg.src = './logo_arkhitek.svg';
+        };
+  testPng.src = './arkhitek-logo.png';
+        return;
+      }
+      // 直接SVG試行
+      const testSvg = new Image();
+      testSvg.onload = () => { mountImage('./logo_arkhitek.svg'); console.info('SVG logo loaded'); };
+      testSvg.onerror = () => { console.warn('SVG logo missing. Using text fallback'); mountTextFallback(); };
+      testSvg.src = './logo_arkhitek.svg';
+    })();
+  </script>
+</body>
+</html>
