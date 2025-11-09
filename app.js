@@ -23,7 +23,6 @@
   const pasteLoadButton = document.getElementById('pasteLoadButton');
   const alpha_factor = document.getElementById('alpha_factor');
   const max_ultimate_deformation = document.getElementById('max_ultimate_deformation');
-  const wall_preset = document.getElementById('wall_preset');
   const envelope_side = document.getElementById('envelope_side');
   const specimen_name = document.getElementById('specimen_name');
   const show_annotations = document.getElementById('show_annotations');
@@ -63,29 +62,7 @@
     return '1/' + denom.toLocaleString('ja-JP');
   }
 
-  // === Preset application ===
-  function applyWallPreset(code){
-    if(!code) return;
-    // 定義: ultimate (mm)
-    const map = {
-      wood_loaded:   { ultimate:15 },
-      wood_tierod:   { ultimate:15 },
-      lgs_true:      { ultimate:30 },
-      lgs_apparent:  { ultimate:30 }
-    };
-    const preset = map[code];
-    if(!preset) return;
-    max_ultimate_deformation.value = preset.ultimate;
-  appendLog('対象接合部プリセット適用: '+code+' → 最大変位δmax='+preset.ultimate+' mm');
-  }
-
-  if(wall_preset){
-    wall_preset.addEventListener('change', e => {
-      applyWallPreset(e.target.value);
-      // プリセット変更時も自動解析
-      if(rawData && rawData.length >= 3){ scheduleAutoRun(); }
-    });
-  }
+  // 対象接合部プリセット機能は廃止
 
   // 自動解析スケジューラ（タイプ中の過剰実行を防止）
   let _autoRunTimer = null;
@@ -504,7 +481,7 @@
   redoStack = [];
     plotDiv.innerHTML = '';
     // 結果表示リセット
-  ['val_pmax','val_py','val_dy','val_K','val_pu','val_dv','val_du','val_mu','val_ds','val_p0_a','val_p0_c','val_p0','val_pa'].forEach(id=>{
+  ['val_pmax','val_py','val_dy','val_K','val_pu','val_dv','val_du','val_mu','val_ds','val_p0_a','val_p0_b','val_p0','val_pa'].forEach(id=>{
       const el = document.getElementById(id); if(el) el.textContent='-';
     });
   }
@@ -569,7 +546,7 @@
               <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">μ</td><td style="text-align:right; padding:6px 8px;">${r.mu?.toFixed(2) ?? '-'}</td></tr>
               <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">Ds</td><td style="text-align:right; padding:6px 8px;">${r.mu && r.mu>0 ? (1/Math.sqrt(2*r.mu-1)).toFixed(3) : '-'}</td></tr>
               <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">P0(a)</td><td style="text-align:right; padding:6px 8px;">${r.p0_a?.toFixed(3) ?? '-'}</td></tr>
-              <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">P0(c)</td><td style="text-align:right; padding:6px 8px;">${r.p0_c?.toFixed(3) ?? '-'}</td></tr>
+              <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">P0(b)</td><td style="text-align:right; padding:6px 8px;">${r.p0_b?.toFixed(3) ?? '-'}</td></tr>
               <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">P0</td><td style="text-align:right; padding:6px 8px;">${r.P0?.toFixed(3) ?? '-'}</td></tr>
               <tr style="border-bottom:1px solid #ccc;"><td style="padding:6px 8px;">Pa (kN)</td><td style="text-align:right; padding:6px 8px;">${r.Pa?.toFixed(3) ?? '-'}</td></tr>
             </table>
@@ -586,9 +563,8 @@
         // Extract label from text (remove values and units)
         let simplifiedText = '';
         // IMPORTANT: Detect P0 first so embedded 'Py=' or 'Pmax=' doesn't override
-        if(ann.text.includes('P0(a)')) simplifiedText = 'P0(a)';
-        else if(ann.text.includes('P0(b)')) simplifiedText = 'P0(b)';
-        else if(ann.text.includes('P0(c)')) simplifiedText = 'P0(c)';
+    if(ann.text.includes('P0(a)')) simplifiedText = 'P0(a)';
+    else if(ann.text.includes('P0(b)')) simplifiedText = 'P0(b)';
         else if(ann.text.includes('δu=')) simplifiedText = 'δu';
         else if(ann.text.includes('δy=')) simplifiedText = 'δy';
         else if(ann.text.includes('Py=')) simplifiedText = 'Py';
@@ -1786,12 +1762,12 @@
     // (a) Yield strength
     const p0_a = Py;
 
-    // (c) Max strength
-    const p0_c = Pmax * (2/3);
+  // (b) Max strength criterion (2/3 Pmax)
+  const p0_b = Pmax * (2/3);
 
-    const P0 = Math.min(p0_a, p0_c);
+  const P0 = Math.min(p0_a, p0_b);
 
-    return { p0_a, p0_c, P0 };
+  return { p0_a, p0_b, P0 };
   }
 
   function findPointAtGamma(envelope, targetGamma, key){
@@ -1815,7 +1791,7 @@
 
   // === Rendering ===
   function renderPlot(envelope, results){
-    const { Pmax, Py, Py_gamma, lineI, lineII, lineIII, lineV, lineVI, delta_u, delta_v, p0_a, p0_c } = results;
+    const { Pmax, Py, Py_gamma, lineI, lineII, lineIII, lineV, lineVI, delta_u, delta_v, p0_a, p0_b } = results;
 
   // Draw evaluation overlays on the selected side explicitly
   const envelopeSign = (envelope_side && envelope_side.value === 'negative') ? -1 : 1;
@@ -1948,11 +1924,11 @@
       gamma_max = Math.max(Math.abs(xRangeSafe[0]), Math.abs(xRangeSafe[1]));
       if(!Number.isFinite(gamma_max) || gamma_max <= 0) gamma_max = 1;
     }
-    const trace_p0_lines = {
+  const trace_p0_lines = {
       x: [0, gamma_max * envelopeSign, NaN, 0, gamma_max * envelopeSign],
-      y: [p0_a * envelopeSign, p0_a * envelopeSign, NaN, p0_c * envelopeSign, p0_c * envelopeSign],
+  y: [p0_a * envelopeSign, p0_a * envelopeSign, NaN, p0_b * envelopeSign, p0_b * envelopeSign],
       mode: 'lines',
-      name: 'P0基準 (a,c)',
+      name: 'P0基準 (a,b)',
       line: {color: 'gray', width: 1, dash: 'dot'}
     };
 
@@ -1999,7 +1975,7 @@
       shapes: shapes,
       annotations: (function(){
         const annMode = show_annotations ? show_annotations.value : 'all';
-        const allAnnotations = [
+        const baseAnnotations = [
         // 終局変位 δu (mm) → Line VI の終点（delta_u の位置）に表示
         {
           x: (lineVI.gamma_end) * envelopeSign,
@@ -2078,7 +2054,7 @@
         // P0基準注釈を重ならないよう縦方向にスタック配置
         const p0Values = [
           {label: 'P0(a)=Py', value: p0_a},
-          {label: 'P0(c)=2/3·Pmax', value: p0_c}
+          {label: 'P0(b)=2/3·Pmax', value: p0_b}
         ];
         // y座標順でソート
         p0Values.sort((a,b) => b.value - a.value);
@@ -2090,13 +2066,14 @@
         const minGapData = (minGapPx / yRangePx) * yDataRange;
         
         let prevY = Infinity;
+        const p0Annotations = [];
         for(let i=0; i<p0Values.length; i++){
           let yPos = p0Values[i].value;
           if(prevY - yPos < minGapData){
             yPos = prevY - minGapData; // 前の注釈から一定間隔空ける
           }
           prevY = yPos;
-          allAnnotations.push({
+          p0Annotations.push({
             x: gamma_max * 0.05 * envelopeSign,
             y: yPos * envelopeSign,
             xref: 'x', yref: 'y',
@@ -2112,9 +2089,9 @@
 
         // 注釈フィルタリング
         if(annMode === 'none') return [];
-        if(annMode === 'p0only') return allAnnotations.slice(-4); // P0(a)～(d)のみ
-        if(annMode === 'main') return allAnnotations.slice(0, -4); // 主要のみ(P0除外)
-        return allAnnotations; // 'all' or default
+        if(annMode === 'p0only') return p0Annotations; // P0(a)～(b)のみ
+        if(annMode === 'main') return baseAnnotations; // 主要のみ(P0除外)
+        return baseAnnotations.concat(p0Annotations); // 'all' or default
       })()
     };
 
@@ -2818,8 +2795,8 @@
     const dsEl = document.getElementById('val_ds');
     if(dsEl) dsEl.textContent = Ds;
 
-    document.getElementById('val_p0_a').textContent = r.p0_a.toFixed(3);
-    document.getElementById('val_p0_c').textContent = r.p0_c.toFixed(3);
+  document.getElementById('val_p0_a').textContent = r.p0_a.toFixed(3);
+  document.getElementById('val_p0_b').textContent = r.p0_b.toFixed(3);
     document.getElementById('val_p0').textContent = r.P0.toFixed(3);
 
     document.getElementById('val_pa').textContent = r.Pa.toFixed(3);
@@ -2870,7 +2847,7 @@
         ['終局変位 δu', r.delta_u, 'mm'],
         ['塑性率 μ', r.mu, ''],
         ['P0(a) 降伏耐力', r.p0_a, 'kN'],
-        ['P0(c) 最大耐力基準', r.p0_c, 'kN'],
+  ['P0(b) 最大耐力基準', r.p0_b, 'kN'],
         ['短期基準せん断耐力 P0', r.P0, 'kN'],
         ['短期許容せん断耐力 Pa', r.Pa, 'kN']
       ];
