@@ -42,6 +42,10 @@
   const editLoadInput = document.getElementById('edit_load');
   const applyPointEditButton = document.getElementById('applyPointEdit');
   const cancelPointEditButton = document.getElementById('cancelPointEdit');
+  const toggleDragMoveButton = document.getElementById('toggleDragMove');
+
+  // ドラッグ移動モード（ボタンONの間、Ctrl+Shift不要で点ドラッグ可能。パン/ズームを抑止）
+  let dragMoveEnabled = false;
 
   // 履歴管理 (Undo/Redo)
   let historyStack = [];
@@ -127,6 +131,21 @@
     pointEditDialog.classList.add('custom-position');
     pointEditDialog.style.display = 'flex';
 
+    // ドラッグ移動モードボタン初期化
+    if(toggleDragMoveButton){
+      const updateBtnUI = () => {
+        toggleDragMoveButton.textContent = dragMoveEnabled ? 'マウスドラッグ移動OFF' : 'マウスドラッグ移動ON';
+        toggleDragMoveButton.style.background = dragMoveEnabled ? '#f0ffe0' : '';
+      };
+      updateBtnUI();
+      toggleDragMoveButton.onclick = function(){
+        dragMoveEnabled = !dragMoveEnabled;
+        updateBtnUI();
+        // 有効化時はポインタヒント
+        if(plotDiv){ plotDiv.style.cursor = dragMoveEnabled ? 'move' : 'default'; }
+      };
+    }
+
     // 編集中リアルタイム反映
     editGammaInput.oninput = function(){
       const v = parseFloat(editGammaInput.value);
@@ -165,6 +184,10 @@
       content.style.transform = '';
     }
     console.debug('[ダイアログ] 閉じました');
+    // ダイアログを閉じたらドラッグ移動モードを自動OFF
+    dragMoveEnabled = false;
+    if(toggleDragMoveButton){ toggleDragMoveButton.textContent = 'マウスドラッグ移動ON'; toggleDragMoveButton.style.background = ''; }
+    if(plotDiv){ plotDiv.style.cursor = 'default'; }
   }
 
   function applyPointEdit(){
@@ -2310,11 +2333,11 @@
     _keydownHandler = handleKeydown;
     document.addEventListener('keydown', _keydownHandler);
     
-    // Shift + ドラッグで包絡線点の座標を変更
-    let shiftDragging = false;
-    let shiftDragIndex = -1;
-    let shiftDragStartX = 0;
-    let shiftDragStartY = 0;
+  // ドラッグ移動状態
+  let shiftDragging = false; // 互換のため名称は維持（実際はトグルでも使用）
+  let shiftDragIndex = -1;
+  let shiftDragStartX = 0;
+  let shiftDragStartY = 0;
     
     plotDiv.on('plotly_hover', function(data){
       if(!data.points || data.points.length === 0) return;
@@ -2333,11 +2356,15 @@
       }
     });
     
-    // マウスダウン: Ctrl+Shift 押下中かつ包絡線点上ならドラッグ開始
+    // マウスダウン: トグルON または Ctrl+Shift 押下中かつ包絡線点上ならドラッグ開始
     let mousedownHandler = function(e){
-      // Ctrl+Shift 同時押しでのみドラッグ開始（Mac の command 対応は ctrlKey 優先）
       const ctrlOrMeta = e.ctrlKey || e.metaKey;
-      if(!(ctrlOrMeta && e.shiftKey)) return;
+      const allowDrag = dragMoveEnabled || (ctrlOrMeta && e.shiftKey);
+      if(!allowDrag){
+        // トグルON時はパン/ズームを抑止（選択点ヒット時のみドラッグさせる設計）
+        if(dragMoveEnabled){ e.stopImmediatePropagation(); e.preventDefault(); }
+        return;
+      }
       
       // 選択中の点が存在しない場合はドラッグ不可
       if(window._selectedEnvelopePoint < 0 || !editableEnvelope || window._selectedEnvelopePoint >= editableEnvelope.length){
@@ -2480,6 +2507,9 @@
     document.addEventListener('mousemove', mousemoveHandler);
     document.addEventListener('mouseup', mouseupHandler);
     document.addEventListener('mouseleave', mouseupHandler);
+    // ホイールズーム抑止（トグルON時）
+    const wheelSuppressor = function(e){ if(dragMoveEnabled){ e.preventDefault(); e.stopImmediatePropagation(); } };
+    dragLayer.addEventListener('wheel', wheelSuppressor, {passive:false, capture:true});
     // ポインタイベント（Zoom優先を抑止するため早期にハンドリング）
     const pointerdownHandler = function(e){
       if(e && (e.pointerType === 'mouse' || e.pointerType === 'pen')){
