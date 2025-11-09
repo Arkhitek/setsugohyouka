@@ -123,3 +123,5 @@ button.cancel-red{background:#e74c3c;color:#fff;}
 button.cancel-red:hover{background:#c0392b;}
 button.drag-green{background:#27ae60;color:#fff;}
 button.drag-green:hover{background:#229954;}
+/* ON状態で明転させるためのトグル用クラス */
+button.drag-green.active-bright{filter:brightness(1.25); box-shadow:0 0 0 2px rgba(39,174,96,0.35) inset;}

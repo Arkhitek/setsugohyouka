@@ -142,11 +142,10 @@
     if(toggleDragMoveButton){
       const updateBtnUI = () => {
         toggleDragMoveButton.textContent = dragMoveEnabled ? 'マウスドラッグ移動OFF' : 'マウスドラッグ移動ON';
-        // クラスに任せるため背景色直接操作は除去（ON時は一時的に濃淡調整も可）
         if(dragMoveEnabled){
-          toggleDragMoveButton.style.filter = 'brightness(1.05)';
-        }else{
-          toggleDragMoveButton.style.filter = '';
+          toggleDragMoveButton.classList.add('active-bright');
+        } else {
+          toggleDragMoveButton.classList.remove('active-bright');
         }
       };
       updateBtnUI();
@@ -176,7 +175,7 @@
         rangeSelectEnabled = !rangeSelectEnabled;
         if(rangeSelectEnabled){
           // 範囲選択を有効化したらドラッグ移動はOFFへ
-          dragMoveEnabled = false; if(toggleDragMoveButton){ toggleDragMoveButton.textContent='マウスドラッグ移動ON'; toggleDragMoveButton.style.filter=''; }
+          dragMoveEnabled = false; if(toggleDragMoveButton){ toggleDragMoveButton.textContent='マウスドラッグ移動ON'; toggleDragMoveButton.classList.remove('active-bright'); }
           // Box選択モードへ
           try{ if(window.Plotly && plotDiv){ safeRelayout(plotDiv, {'dragmode':'select'}); } }catch(_){/* noop */}
         } else {
@@ -227,7 +226,7 @@
     console.debug('[ダイアログ] 閉じました');
     // ダイアログを閉じたらドラッグ移動モードを自動OFF
     dragMoveEnabled = false;
-  if(toggleDragMoveButton){ toggleDragMoveButton.textContent = 'マウスドラッグ移動ON'; toggleDragMoveButton.style.filter=''; }
+  if(toggleDragMoveButton){ toggleDragMoveButton.textContent = 'マウスドラッグ移動ON'; toggleDragMoveButton.style.filter=''; toggleDragMoveButton.classList.remove('active-bright'); }
     if(plotDiv){ plotDiv.style.cursor = 'default'; }
     // 範囲選択も自動OFFしてパンへ戻す
     rangeSelectEnabled = false;
