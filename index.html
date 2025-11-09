@@ -48,13 +48,13 @@
       <div class="guide-section">
   <h3>1️⃣ データ入力</h3>
   <p>
-    変形 γ(mm) と 荷重 P(kN) を <strong>1行1データ</strong>で入力・貼り付けすると、
+    変形 δ(mm) と 荷重 P(kN) を <strong>1行1データ</strong>で入力・貼り付けすると、
     <strong>自動で解析</strong>が実行されます。<br/>
-  「対象接合部」を選択すると <strong>特定変形・最大終局変位・C0</strong> が即時に反映されます。<br/>
+  「対象接合部」を選択すると <strong>最大変位δmax</strong> が即時に反映されます。<br/>
     「評価対象包絡線（正/負）」も必要に応じて選択してください。
   </p>
   <ul>
-    <li>γ と P は<strong>同じ行数</strong>で入力してください（数値以外の行は無視）</li>
+    <li>δ と P は<strong>同じ行数</strong>で入力してください（数値以外の行は無視）</li>
     <li>CSV の貼り付けに対応しています（列ごとにそれぞれの欄へ）</li>
     <li>入力・選択の変更は<strong>短い待ち時間後に自動解析</strong>されます</li>
   </ul>
@@ -78,7 +78,6 @@
         <h3>3️⃣ 結果確認</h3>
         <p>
           特性値は表で確認できます。<br/>
-          変位（δy・δv・δu）は<strong>1/◯ 形式</strong>で表示されます。<br/>
           最終評価には <strong>Pa (kN)</strong> と <strong>Pu (kN)</strong> も併記します。<br/>
           保存は <strong>結果Excelダウンロード</strong> と <strong>結果レポート作成(PDF)</strong> が利用可能（PDFは1ページ出力）。
           これらのボタンは<strong>解析成功後に有効化</strong>されます。
@@ -99,7 +98,7 @@
           <option value="lgs_true">薄板軽量形鋼造(真のせん断変形角で評価)</option>
           <option value="lgs_apparent">薄板軽量形鋼造(みかけのせん断変形角で評価)</option>
         </select>
-        <small>選択すると、特定変形・最大終局変形・C0が即座に反映されます</small>
+        <small>選択すると、最大変位δmaxが即座に反映されます</small>
       </div>
       <div class="control-group">
         <label for="specimen_name">試験体名称</label>
@@ -111,49 +110,35 @@
     <button id="clearDataButton">入力データ削除</button>
     
     <div class="paste-buttons" style="margin-top:10px;">
-      <button id="pasteGammaButton" type="button">変形 γ 貼り付け</button>
+      <button id="pasteGammaButton" type="button">変形 δ 貼り付け</button>
       <button id="pasteBothButton" type="button">変形・荷重 同時貼り付け</button>
       <button id="pasteLoadButton" type="button">荷重 P 貼り付け</button>
     </div>
-    <small style="display:block; margin-top:4px; color:#666;">Excel等から γ, P 2列コピー → 「変形・荷重 同時貼り付け」ボタン</small>
+    <small style="display:block; margin-top:4px; color:#666;">Excel等から δ, P 2列コピー → 「変形・荷重 同時貼り付け」ボタン</small>
 
     <div class="row">
       <div class="control-group">
-        <label for="gammaInput">変形 γ (mm) - 1行1データ</label>
+        <label for="gammaInput">変形 δ (mm) - 1行1データ</label>
         <textarea id="gammaInput" rows="8" placeholder="例: 数値以外の行は無視されます"></textarea>
         <small>変形データを1行に1つずつ入力</small>
       </div>
       <div class="control-group">
         <label for="loadInput">荷重 P (kN) - 1行1データ</label>
-        <textarea id="loadInput" rows="8" placeholder="例: γと同じ行数で入力"></textarea>
+        <textarea id="loadInput" rows="8" placeholder="例: δと同じ行数で入力"></textarea>
         <small>荷重データを1行に1つずつ入力（変形と同じ行数）</small>
       </div>
     </div>
 
     <div class="row">
       <div class="control-group">
-        <label for="specific_deformation">特定変形時耐力の変形 (1/入力値 mm)</label>
-        <input type="number" id="specific_deformation" value="120" step="1" min="1" />
-        <small>例: 120 → 1/120 mm</small>
-      </div>
-      <div class="control-group">
         <label for="alpha_factor">耐力低減係数 α</label>
         <input type="number" id="alpha_factor" value="0.9" step="0.01" min="0" max="1" />
         <small>耐久性・施工性等の影響を勘案</small>
       </div>
-    </div>
       <div class="control-group">
-        <label for="max_ultimate_deformation">終局変位の最大値 (1/入力値 rad)</label>
-        <input type="number" id="max_ultimate_deformation" value="15" step="1" min="1" />
-        <small>例: 15 → 1/15 rad</small>
-      </div>
-    </div>
-
-    <div class="row">
-      <div class="control-group">
-        <label for="c0_factor">靭性基準係数 C0</label>
-        <input type="number" id="c0_factor" value="0.2" step="0.01" min="0" />
-        <small>靭性基準の計算に使用する係数</small>
+        <label for="max_ultimate_deformation">最大変位δmax (mm)</label>
+        <input type="number" id="max_ultimate_deformation" value="30" step="1" min="1" />
+        <small>終局変位の上限値</small>
       </div>
     </div>
 
@@ -204,9 +189,9 @@
       </div>
       <p style="margin:8px 0 0; color:#666; font-size:12px;">
         ヒント: プロット上で<strong>Ctrl+Shift</strong>を押しながら点をドラッグすると移動できます。
-        ドラッグ中は下の入力欄の <code>γ</code>・<code>P</code> もリアルタイムに連動更新されます。
+        ドラッグ中は下の入力欄の <code>δ</code>・<code>P</code> もリアルタイムに連動更新されます。
       </p>
-      <label>変形 γ (mm): <input type="number" id="edit_gamma" step="0.0001" /></label>
+      <label>変形 δ (mm): <input type="number" id="edit_gamma" step="0.0001" /></label>
       <label>荷重 P (kN): <input type="number" id="edit_load" step="0.1" /></label>
       <div class="modal-actions">
         <button id="addPointEdit" class="add">点を追加</button>
@@ -225,11 +210,11 @@
       <tbody id="resultsBasic">
         <tr><td>最大耐力 Pmax (kN)</td><td id="val_pmax">-</td></tr>
         <tr><td>降伏耐力 Py (kN)</td><td id="val_py">-</td></tr>
-  <tr><td>降伏変位 δy</td><td id="val_dy">-</td></tr>
-        <tr><td>初期剛性 K (kN/rad)</td><td id="val_K">-</td></tr>
+  <tr><td>降伏変位 δy (mm)</td><td id="val_dy">-</td></tr>
+        <tr><td>初期剛性 K (kN/mm)</td><td id="val_K">-</td></tr>
         <tr><td>終局耐力 Pu (kN)</td><td id="val_pu">-</td></tr>
-  <tr><td>降伏点変位 δv</td><td id="val_dv">-</td></tr>
-  <tr><td>終局変位 δu</td><td id="val_du">-</td></tr>
+  <tr><td>降伏点変位 δv (mm)</td><td id="val_dv">-</td></tr>
+  <tr><td>終局変位 δu (mm)</td><td id="val_du">-</td></tr>
         <tr><td>塑性率 μ</td><td id="val_mu">-</td></tr>
         <tr><td>構造特性係数 Ds (1/√(2μ-1))</td><td id="val_ds">-</td></tr>
       </tbody>
@@ -239,10 +224,8 @@
     <table id="results-table-p0">
       <tbody id="resultsP0">
         <tr><td>(a) 降伏耐力 Py (kN)</td><td id="val_p0_a">-</td></tr>
-        <tr><td>(b) 靭性基準 Pu/(1/√(2μ-1))×C0 (kN)</td><td id="val_p0_b">-</td></tr>
         <tr><td>(c) 最大耐力基準 Pmax×2/3 (kN)</td><td id="val_p0_c">-</td></tr>
-  <tr><td>(d) 特定変形時耐力 γ=1/<span id="label_specific_deformation">---</span>rad P (kN)</td><td id="val_p0_d">-</td></tr>
-        <tr class="highlight"><td>短期基準せん断耐力 P0 = Min(a,b,c,d) (kN)</td><td id="val_p0">-</td></tr>
+        <tr class="highlight"><td>短期基準せん断耐力 P0 = Min(a,c) (kN)</td><td id="val_p0">-</td></tr>
       </tbody>
     </table>
 

@@ -21,10 +21,8 @@
   const loadInput = document.getElementById('loadInput');
   const pasteGammaButton = document.getElementById('pasteGammaButton');
   const pasteLoadButton = document.getElementById('pasteLoadButton');
-  const specific_deformation = document.getElementById('specific_deformation');
   const alpha_factor = document.getElementById('alpha_factor');
   const max_ultimate_deformation = document.getElementById('max_ultimate_deformation');
-  const c0_factor = document.getElementById('c0_factor');
   const wall_preset = document.getElementById('wall_preset');
   const envelope_side = document.getElementById('envelope_side');
   const specimen_name = document.getElementById('specimen_name');
@@ -68,19 +66,17 @@
   // === Preset application ===
   function applyWallPreset(code){
     if(!code) return;
-    // 定義: specific (1/N), ultimate (1/N), c0
+    // 定義: ultimate (mm)
     const map = {
-      wood_loaded:   { specific:120, ultimate:15, c0:0.2 },
-      wood_tierod:   { specific:150, ultimate:15, c0:0.2 },
-      lgs_true:      { specific:200, ultimate:30, c0:0.3 },
-      lgs_apparent:  { specific:120, ultimate:30, c0:0.3 }
+      wood_loaded:   { ultimate:15 },
+      wood_tierod:   { ultimate:15 },
+      lgs_true:      { ultimate:30 },
+      lgs_apparent:  { ultimate:30 }
     };
     const preset = map[code];
     if(!preset) return;
-    specific_deformation.value = preset.specific;
     max_ultimate_deformation.value = preset.ultimate;
-    c0_factor.value = preset.c0;
-  appendLog('対象接合部プリセット適用: '+code+' → 特定変形1/'+preset.specific+', 最大終局1/'+preset.ultimate+', C0='+preset.c0);
+  appendLog('対象接合部プリセット適用: '+code+' → 最大変位δmax='+preset.ultimate+' mm');
   }
 
   if(wall_preset){
@@ -464,7 +460,7 @@
   // 手動ボタン削除済み: processButton クリックイベント不要
 
   // パラメータ変更時の自動解析
-  const autoInputs = [specific_deformation, alpha_factor, max_ultimate_deformation, c0_factor];
+  const autoInputs = [alpha_factor, max_ultimate_deformation];
   autoInputs.forEach(el => {
     if(!el) return;
     el.addEventListener('input', () => { if(rawData && rawData.length>=3) scheduleAutoRun(); });
@@ -508,7 +504,7 @@
   redoStack = [];
     plotDiv.innerHTML = '';
     // 結果表示リセット
-  ['val_pmax','val_py','val_dy','val_K','val_pu','val_dv','val_du','val_mu','val_ds','val_p0_a','val_p0_b','val_p0_c','val_p0_d','val_p0','val_pa'].forEach(id=>{
+  ['val_pmax','val_py','val_dy','val_K','val_pu','val_dv','val_du','val_mu','val_ds','val_p0_a','val_p0_c','val_p0','val_pa'].forEach(id=>{
       const el = document.getElementById(id); if(el) el.textContent='-';
     });
   }
@@ -539,7 +535,7 @@
 
       // Build HTML content
       const r = analysisResults;
-      const fmt1 = (v) => formatReciprocal(v);
+      const fmt2 = (v) => (Number.isFinite(v) && v > 0) ? v.toFixed(2) + ' mm' : '-';
       container.innerHTML = `
         <div style="text-align:center; margin-bottom:15px;">
           <h1 style="font-size:24px; margin:10px 0;">接合部性能評価レポート</h1>
@@ -554,9 +550,7 @@
                 <col style="width:60%">
                 <col style="width:40%">
               </colgroup>
-              <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">特定変形</td><td style="text-align:right; padding:6px 8px;">1/${Number(specific_deformation.value).toLocaleString('ja-JP')}</td></tr>
-              <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">最大終局変位</td><td style="text-align:right; padding:6px 8px;">1/${Number(max_ultimate_deformation.value).toLocaleString('ja-JP')}</td></tr>
-              <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">C0</td><td style="text-align:right; padding:6px 8px;">${c0_factor.value}</td></tr>
+              <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">最大変位δmax</td><td style="text-align:right; padding:6px 8px;">${Number(max_ultimate_deformation.value).toLocaleString('ja-JP')} mm</td></tr>
               <tr style="border-bottom:1px solid #ccc;"><td style="padding:6px 8px;">α</td><td style="text-align:right; padding:6px 8px;">${alpha_factor.value}</td></tr>
             </table>
           </div>
@@ -570,14 +564,12 @@
               <tr style="border-bottom:1px solid #ccc;"><td style="padding:6px 8px;">Pmax (kN)</td><td style="text-align:right; padding:6px 8px;">${r.Pmax?.toFixed(3) ?? '-'}</td></tr>
               <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">Py (kN)</td><td style="text-align:right; padding:6px 8px;">${r.Py?.toFixed(3) ?? '-'}</td></tr>
               <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">Pu (kN)</td><td style="text-align:right; padding:6px 8px;">${r.Pu?.toFixed(3) ?? '-'}</td></tr>
-              <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">δv</td><td style="text-align:right; padding:6px 8px;">${fmt1(r.delta_v)}</td></tr>
-              <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">δu</td><td style="text-align:right; padding:6px 8px;">${fmt1(r.delta_u)}</td></tr>
+              <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">δv (mm)</td><td style="text-align:right; padding:6px 8px;">${fmt2(r.delta_v)}</td></tr>
+              <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">δu (mm)</td><td style="text-align:right; padding:6px 8px;">${fmt2(r.delta_u)}</td></tr>
               <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">μ</td><td style="text-align:right; padding:6px 8px;">${r.mu?.toFixed(2) ?? '-'}</td></tr>
               <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">Ds</td><td style="text-align:right; padding:6px 8px;">${r.mu && r.mu>0 ? (1/Math.sqrt(2*r.mu-1)).toFixed(3) : '-'}</td></tr>
               <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">P0(a)</td><td style="text-align:right; padding:6px 8px;">${r.p0_a?.toFixed(3) ?? '-'}</td></tr>
-              <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">P0(b)</td><td style="text-align:right; padding:6px 8px;">${r.p0_b?.toFixed(3) ?? '-'}</td></tr>
               <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">P0(c)</td><td style="text-align:right; padding:6px 8px;">${r.p0_c?.toFixed(3) ?? '-'}</td></tr>
-              <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">P0(d)</td><td style="text-align:right; padding:6px 8px;">${r.p0_d?.toFixed(3) ?? '-'}</td></tr>
               <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">P0</td><td style="text-align:right; padding:6px 8px;">${r.P0?.toFixed(3) ?? '-'}</td></tr>
               <tr style="border-bottom:1px solid #ccc;"><td style="padding:6px 8px;">Pa (kN)</td><td style="text-align:right; padding:6px 8px;">${r.Pa?.toFixed(3) ?? '-'}</td></tr>
             </table>
@@ -597,14 +589,12 @@
         if(ann.text.includes('P0(a)')) simplifiedText = 'P0(a)';
         else if(ann.text.includes('P0(b)')) simplifiedText = 'P0(b)';
         else if(ann.text.includes('P0(c)')) simplifiedText = 'P0(c)';
-        else if(ann.text.includes('P0(d)')) simplifiedText = 'P0(d)';
         else if(ann.text.includes('δu=')) simplifiedText = 'δu';
         else if(ann.text.includes('δy=')) simplifiedText = 'δy';
         else if(ann.text.includes('Py=')) simplifiedText = 'Py';
         else if(ann.text.includes('Pu=')) simplifiedText = 'Pu';
         else if(ann.text.includes('δv=')) simplifiedText = 'δv';
         else if(ann.text.includes('Pmax=')) simplifiedText = 'Pmax';
-        else if(ann.text.includes('γs=')) simplifiedText = 'γs';
         else return ann;
         
         return {
@@ -1039,21 +1029,13 @@
   function processDataDirect(){
     try{
       const alpha = parseFloat(alpha_factor.value);
-      const c0 = parseFloat(c0_factor.value);
       const side = envelope_side.value;
-      const specificDeformationValue = parseFloat(specific_deformation.value);
-      const maxUltimateDeformationValue = parseFloat(max_ultimate_deformation.value);
+      const delta_u_max = parseFloat(max_ultimate_deformation.value);
 
-      if(!isFinite(alpha) || !isFinite(c0) || c0 < 0 || !isFinite(specificDeformationValue) || specificDeformationValue <= 0 || !isFinite(maxUltimateDeformationValue) || maxUltimateDeformationValue <= 0){
+      if(!isFinite(alpha) || !isFinite(delta_u_max) || delta_u_max <= 0){
         console.warn('入力値が不正です');
         return;
       }
-      
-      // Calculate gamma_specific from 1/specificDeformationValue
-      const gamma_specific = 1.0 / specificDeformationValue;
-      
-      // Calculate delta_u_max from 1/maxUltimateDeformationValue
-      const delta_u_max = 1.0 / maxUltimateDeformationValue;
 
       // Generate full envelope from direct input data (計算用フル包絡線)
       const fullEnvelope = generateEnvelope(rawData, side);
@@ -1062,15 +1044,14 @@
         return;
       }
       // Calculate characteristic points using full envelope (精度優先)
-      analysisResults = calculateJTCCMMetrics(fullEnvelope, gamma_specific, delta_u_max, alpha, c0);
+      analysisResults = calculateJTCCMMetrics(fullEnvelope, delta_u_max, alpha);
 
-      // After metrics, thin for display preserving δy, δu, γs, loop peaks
+      // After metrics, thin for display preserving δy, δu, loop peaks
       let displayEnvelope = fullEnvelope;
       if(fullEnvelope.length > 50){
         const mandatoryGammas = [];
         if(Number.isFinite(analysisResults.delta_y)) mandatoryGammas.push(analysisResults.delta_y);
         if(Number.isFinite(analysisResults.delta_u)) mandatoryGammas.push(analysisResults.delta_u);
-        if(Number.isFinite(analysisResults.gamma_specific)) mandatoryGammas.push(analysisResults.gamma_specific);
         // 原データからループ（反転点）を検出し、各ループ最大荷重点のγを保持
         try{
           const loopGammas = detectLoopPeakGammas(rawData, side);
@@ -1079,7 +1060,7 @@
           }
         }catch(err){ console.warn('ループピーク検出エラー', err); }
         displayEnvelope = thinEnvelope(fullEnvelope, 40, 50, mandatoryGammas);
-        console.info('[thinEnvelope] 包絡線点を '+displayEnvelope.length+' 点に間引き（δy/δu/γs/ループ最大荷重を保持）');
+        console.info('[thinEnvelope] 包絡線点を '+displayEnvelope.length+' 点に間引き（δy/δu/ループ最大荷重を保持）');
       }
 
       // Set envelopeData to display/thinned version for editing
@@ -1112,7 +1093,7 @@
       let idxPmax = 0; let maxAbs = -Infinity;
       for(let i=0;i<pts.length;i++){ const a = Math.abs(pts[i].y); if(a>maxAbs){ maxAbs=a; idxPmax=i; } }
       const mandatory = new Set([0, pts.length-1, idxPmax]);
-      // 追加必須点: 指定された γ 値（δy, δu, γs）に最も近い点
+      // 追加必須点: 指定された γ 値（δy, δu）に最も近い点
       if(Array.isArray(mandatoryGammas)){
         mandatoryGammas.forEach(gTarget => {
           if(!Number.isFinite(gTarget)) return;
@@ -1136,7 +1117,7 @@
       }
       // もし必須点だけで maxPoints を超える場合は必須点から優先順位で削減
       if(mandatory.size > maxPoints){
-        // 優先順位: 0(先頭), last(末尾), Pmax, δy/δu/γs近傍, その他ループピーク
+        // 優先順位: 0(先頭), last(末尾), Pmax, δy/δu近傍, その他ループピーク
         const mustArr = Array.from(mandatory);
         const priorityCore = [0, pts.length-1, idxPmax];
         const core = mustArr.filter(i=>priorityCore.includes(i));
@@ -1387,11 +1368,8 @@
   }
 
   // === JTCCM Metrics Calculation (Sections III, IV, V) ===
-  function calculateJTCCMMetrics(envelope, gamma_specific, delta_u_max, alpha, c0){
+  function calculateJTCCMMetrics(envelope, delta_u_max, alpha){
     const results = {};
-
-    // Store gamma_specific for later use in rendering
-    results.gamma_specific = gamma_specific;
 
     // Determine the sign of the envelope (positive or negative side)
     const envelopeSign = envelope[0] && envelope[0].Load < 0 ? -1 : 1;
@@ -1470,7 +1448,7 @@
     }
 
     // Calculate P0 (Section V.1) using final results
-    const P0_result = calculateP0(results, envelope, gamma_specific, c0);
+    const P0_result = calculateP0(results, envelope);
     Object.assign(results, P0_result);
 
     // Calculate Pa (Section V.2)
@@ -1802,33 +1780,18 @@
   }
 
   // === P0 Calculation (Section V.1) ===
-  function calculateP0(results, envelope, gamma_specific, c0){
-    const { Py, Pu, mu, Pmax } = results;
+  function calculateP0(results, envelope){
+    const { Py, Pmax } = results;
 
     // (a) Yield strength
     const p0_a = Py;
 
-    // (b) Ductility-based
-    let p0_b;
-    const denom = 2 * mu - 1;
-    if(denom > 0){
-      // Pu / (1/ sqrt(2μ - 1)) * C0 = C0 * Pu * sqrt(2μ - 1)
-      p0_b = c0 * Pu * Math.sqrt(denom);
-    }else{
-      // フォールバック（定義域外の場合は Py を採用）
-      p0_b = Py;
-    }
-
     // (c) Max strength
     const p0_c = Pmax * (2/3);
 
-    // (d) Specific deformation - use gamma_specific directly
-    const pt = findPointAtGamma(envelope, gamma_specific, 'gamma');
-    const p0_d = pt ? Math.abs(pt.Load) : Pmax;
+    const P0 = Math.min(p0_a, p0_c);
 
-    const P0 = Math.min(p0_a, p0_b, p0_c, p0_d);
-
-    return { p0_a, p0_b, p0_c, p0_d, P0 };
+    return { p0_a, p0_c, P0 };
   }
 
   function findPointAtGamma(envelope, targetGamma, key){
@@ -1852,7 +1815,7 @@
 
   // === Rendering ===
   function renderPlot(envelope, results){
-    const { Pmax, Py, Py_gamma, lineI, lineII, lineIII, lineV, lineVI, delta_u, delta_v, p0_a, p0_b, p0_c, p0_d } = results;
+    const { Pmax, Py, Py_gamma, lineI, lineII, lineIII, lineV, lineVI, delta_u, delta_v, p0_a, p0_c } = results;
 
   // Draw evaluation overlays on the selected side explicitly
   const envelopeSign = (envelope_side && envelope_side.value === 'negative') ? -1 : 1;
@@ -1986,10 +1949,10 @@
       if(!Number.isFinite(gamma_max) || gamma_max <= 0) gamma_max = 1;
     }
     const trace_p0_lines = {
-      x: [0, gamma_max * envelopeSign, NaN, 0, gamma_max * envelopeSign, NaN, 0, gamma_max * envelopeSign, NaN, 0, gamma_max * envelopeSign],
-      y: [p0_a * envelopeSign, p0_a * envelopeSign, NaN, p0_b * envelopeSign, p0_b * envelopeSign, NaN, p0_c * envelopeSign, p0_c * envelopeSign, NaN, p0_d * envelopeSign, p0_d * envelopeSign],
+      x: [0, gamma_max * envelopeSign, NaN, 0, gamma_max * envelopeSign],
+      y: [p0_a * envelopeSign, p0_a * envelopeSign, NaN, p0_c * envelopeSign, p0_c * envelopeSign],
       mode: 'lines',
-      name: 'P0基準 (a,b,c,d)',
+      name: 'P0基準 (a,c)',
       line: {color: 'gray', width: 1, dash: 'dot'}
     };
 
@@ -2008,26 +1971,11 @@
         line: {color: 'purple', width: 1.5, dash: 'dot'}
       });
     }
-    
-    // γs 縦補助線（特定変形時の変形）: layout.shapes で描画
-    if(results.gamma_specific && Number.isFinite(results.gamma_specific)){
-      const x_gs = results.gamma_specific * envelopeSign;
-      shapes.push({
-        type: 'line',
-        xref: 'x',
-        yref: 'paper',
-        x0: x_gs,
-        x1: x_gs,
-        y0: 0,
-        y1: 1,
-        line: {color: 'orange', width: 1.5, dash: 'dash'}
-      });
-    }
 
     const layout = {
       title: '荷重-変形関係と評価直線',
       xaxis: {
-        title: '変形 γ (mm)',
+        title: '変形 δ (mm)',
         range: xRangeSafe,
         autorange: false
       },
@@ -2057,7 +2005,7 @@
           x: (lineVI.gamma_end) * envelopeSign,
           y: (lineVI.Load) * envelopeSign,
           xref: 'x', yref: 'y',
-          text: `δu=${formatReciprocal(delta_u)}`,
+          text: `δu=${delta_u.toFixed(2)} mm`,
           showarrow: true,
           ax: 20, ay: -20,
           font: {size: 12, color: 'purple'},
@@ -2070,7 +2018,7 @@
           x: (results.delta_y) * envelopeSign,
           y: (Py) * envelopeSign,
           xref: 'x', yref: 'y',
-          text: `δy=${formatReciprocal(results.delta_y)}`,
+          text: `δy=${results.delta_y.toFixed(2)} mm`,
           showarrow: true,
           ax: 20, ay: 20,
           font: {size: 12, color: 'green'},
@@ -2106,7 +2054,7 @@
           x: (lineV.end.gamma) * envelopeSign,
           y: (lineV.end.Load) * envelopeSign,
           xref: 'x', yref: 'y',
-          text: `δv=${formatReciprocal(delta_v)}`,
+          text: `δv=${delta_v.toFixed(2)} mm`,
           showarrow: true,
           ax: -30, ay: 20,
           font: {size: 12, color: 'purple'},
@@ -2124,27 +2072,13 @@
           font: {size: 12, color: 'red'},
           bgcolor: 'rgba(255,255,255,0.7)',
           bordercolor: 'red', borderwidth: 1
-        },
-        // 特定変形 γs (mm) → グラフ上部に表示
-        {
-          x: (results.gamma_specific) * envelopeSign,
-          y: yRangeSafe[1] * envelopeSign * 0.95,
-          xref: 'x', yref: 'y',
-          text: `γs=${formatReciprocal(results.gamma_specific)}`,
-          showarrow: true,
-          ax: 0, ay: -30,
-          font: {size: 12, color: 'orange'},
-          bgcolor: 'rgba(255,255,255,0.7)',
-          bordercolor: 'orange', borderwidth: 1
         }
         ];
 
         // P0基準注釈を重ならないよう縦方向にスタック配置
         const p0Values = [
           {label: 'P0(a)=Py', value: p0_a},
-          {label: 'P0(b)=C0·Pu·√(2μ-1)', value: p0_b},
-          {label: 'P0(c)=2/3·Pmax', value: p0_c},
-          {label: 'P0(d)=P(γs)', value: p0_d}
+          {label: 'P0(c)=2/3·Pmax', value: p0_c}
         ];
         // y座標順でソート
         p0Values.sort((a,b) => b.value - a.value);
@@ -2838,16 +2772,11 @@
       envelopeData = editableEnvelope.map(pt => ({...pt}));
       
       const alpha = parseFloat(alpha_factor.value);
-      const c0 = parseFloat(c0_factor.value);
-      const specificDeformationValue = parseFloat(specific_deformation.value);
-      const maxUltimateDeformationValue = parseFloat(max_ultimate_deformation.value);
+      const delta_u_max = parseFloat(max_ultimate_deformation.value);
       
-      if(!isFinite(alpha) || !isFinite(c0) || c0 < 0 || !isFinite(specificDeformationValue) || specificDeformationValue <= 0 || !isFinite(maxUltimateDeformationValue) || maxUltimateDeformationValue <= 0) return;
+      if(!isFinite(alpha) || !isFinite(delta_u_max) || delta_u_max <= 0) return;
       
-      const gamma_specific = 1.0 / specificDeformationValue;
-      const delta_u_max = 1.0 / maxUltimateDeformationValue;
-      
-      analysisResults = calculateJTCCMMetrics(envelopeData, gamma_specific, delta_u_max, alpha, c0);
+      analysisResults = calculateJTCCMMetrics(envelopeData, delta_u_max, alpha);
       renderResults(analysisResults);
       
       // 評価直線などを再描画
@@ -2874,11 +2803,11 @@
   function renderResults(r){
     document.getElementById('val_pmax').textContent = r.Pmax.toFixed(3);
     document.getElementById('val_py').textContent = r.Py.toFixed(3);
-    document.getElementById('val_dy').textContent = formatReciprocal(r.delta_y);
+    document.getElementById('val_dy').textContent = r.delta_y.toFixed(3);
     document.getElementById('val_K').textContent = r.K.toFixed(2);
     document.getElementById('val_pu').textContent = r.Pu.toFixed(3);
-    document.getElementById('val_dv').textContent = formatReciprocal(r.delta_v);
-    document.getElementById('val_du').textContent = formatReciprocal(r.delta_u);
+    document.getElementById('val_dv').textContent = r.delta_v.toFixed(3);
+    document.getElementById('val_du').textContent = r.delta_u.toFixed(3);
     document.getElementById('val_mu').textContent = r.mu.toFixed(3);
     // 構造特性係数 Ds = 1 / sqrt(2μ - 1)
     let Ds = '-';
@@ -2889,17 +2818,8 @@
     const dsEl = document.getElementById('val_ds');
     if(dsEl) dsEl.textContent = Ds;
 
-    // (d) 特定変形時耐力のラベルに設定値を反映（例: γ=1/200rad）
-    const labelSpec = document.getElementById('label_specific_deformation');
-    if(labelSpec && specific_deformation && specific_deformation.value){
-      const n = Number(specific_deformation.value);
-      labelSpec.textContent = Number.isFinite(n) ? n.toLocaleString('ja-JP') : '---';
-    }
-
     document.getElementById('val_p0_a').textContent = r.p0_a.toFixed(3);
-    document.getElementById('val_p0_b').textContent = r.p0_b.toFixed(3);
     document.getElementById('val_p0_c').textContent = r.p0_c.toFixed(3);
-    document.getElementById('val_p0_d').textContent = r.p0_d.toFixed(3);
     document.getElementById('val_p0').textContent = r.P0.toFixed(3);
 
     document.getElementById('val_pa').textContent = r.Pa.toFixed(3);
@@ -2944,16 +2864,13 @@
       const rows = [
         ['最大耐力 Pmax', r.Pmax, 'kN'],
         ['降伏耐力 Py', r.Py, 'kN'],
-        ['降伏変位 δy', formatReciprocal(r.delta_y), '1/n'],
-        ['初期剛性 K', r.K, 'kN/rad'],
+        ['降伏変位 δy', r.delta_y, 'mm'],
+        ['初期剛性 K', r.K, 'kN/mm'],
         ['終局耐力 Pu', r.Pu, 'kN'],
-        ['終局変位 δu', formatReciprocal(r.delta_u), '1/n'],
+        ['終局変位 δu', r.delta_u, 'mm'],
         ['塑性率 μ', r.mu, ''],
         ['P0(a) 降伏耐力', r.p0_a, 'kN'],
-        ['P0(b) 靭性基準', r.p0_b, 'kN'],
         ['P0(c) 最大耐力基準', r.p0_c, 'kN'],
-  // (d) 特定変形時耐力: 設定した reciprocal 変形を明示 (例: γ=1/200mm)
-  [ `P0(d) 特定変形時 γ=1/${Number(specific_deformation.value)}mm P`, r.p0_d, 'kN' ],
         ['短期基準せん断耐力 P0', r.P0, 'kN'],
         ['短期許容せん断耐力 Pa', r.Pa, 'kN']
       ];
