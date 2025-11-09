@@ -43,9 +43,12 @@
   const applyPointEditButton = document.getElementById('applyPointEdit');
   const cancelPointEditButton = document.getElementById('cancelPointEdit');
   const toggleDragMoveButton = document.getElementById('toggleDragMove');
+  const toggleRangeSelectButton = document.getElementById('toggleRangeSelect');
 
   // ドラッグ移動モード（ボタンONの間のみ点ドラッグ可能。パン/ズームを抑止）
   let dragMoveEnabled = false;
+  // 範囲選択モード（ONの間はBox/Lassoを有効化し、削除ボタンで複数削除）
+  let rangeSelectEnabled = false;
 
   // 履歴管理 (Undo/Redo)
   let historyStack = [];
@@ -140,9 +143,38 @@
       updateBtnUI();
       toggleDragMoveButton.onclick = function(){
         dragMoveEnabled = !dragMoveEnabled;
+        if(dragMoveEnabled){
+          // Drag ON にしたら範囲選択はOFFへ
+          rangeSelectEnabled = false; updateRangeSelectUI(false);
+          // ドラッグ移動はパン/ズーム抑止
+        }
         updateBtnUI();
         // 有効化時はポインタヒント
         if(plotDiv){ plotDiv.style.cursor = dragMoveEnabled ? 'move' : 'default'; }
+      };
+    }
+
+    // 範囲選択ONボタン初期化
+    function updateRangeSelectUI(force){
+      if(!toggleRangeSelectButton) return;
+      const on = (typeof force === 'boolean') ? force : rangeSelectEnabled;
+      toggleRangeSelectButton.textContent = on ? '範囲選択OFF' : '範囲選択ON';
+      toggleRangeSelectButton.style.background = on ? '#e0f0ff' : '';
+    }
+    if(toggleRangeSelectButton){
+      updateRangeSelectUI();
+      toggleRangeSelectButton.onclick = function(){
+        rangeSelectEnabled = !rangeSelectEnabled;
+        if(rangeSelectEnabled){
+          // 範囲選択を有効化したらドラッグ移動はOFFへ
+          dragMoveEnabled = false; if(toggleDragMoveButton){ toggleDragMoveButton.textContent='マウスドラッグ移動ON'; toggleDragMoveButton.style.background=''; }
+          // Box選択モードへ
+          try{ if(window.Plotly && plotDiv){ safeRelayout(plotDiv, {'dragmode':'select'}); } }catch(_){/* noop */}
+        } else {
+          // 通常のパンへ戻す
+          try{ if(window.Plotly && plotDiv){ safeRelayout(plotDiv, {'dragmode':'pan'}); } }catch(_){/* noop */}
+        }
+        updateRangeSelectUI();
       };
     }
 
@@ -188,6 +220,10 @@
     dragMoveEnabled = false;
     if(toggleDragMoveButton){ toggleDragMoveButton.textContent = 'マウスドラッグ移動ON'; toggleDragMoveButton.style.background = ''; }
     if(plotDiv){ plotDiv.style.cursor = 'default'; }
+    // 範囲選択も自動OFFしてパンへ戻す
+    rangeSelectEnabled = false;
+    if(toggleRangeSelectButton){ toggleRangeSelectButton.textContent='範囲選択ON'; toggleRangeSelectButton.style.background=''; }
+    try{ if(window.Plotly && plotDiv){ safeRelayout(plotDiv, {'dragmode':'pan'}); } }catch(_){/* noop */}
   }
 
   function applyPointEdit(){
@@ -2261,12 +2297,19 @@
         .filter(pt => pt.curveNumber === 2)
         .map(pt => pt.pointIndex);
       console.debug('[plotly_selected] 選択された包絡線点:', selectedPoints);
+      // 範囲選択ONなら、選択完了後もselectモード維持
+      if(rangeSelectEnabled){
+        try{ if(window.Plotly && plotDiv){ safeRelayout(plotDiv, {'dragmode':'select'}); } }catch(_){/* noop */}
+      }
     });
     
     // 選択解除
     plotDiv.on('plotly_deselect', function(){
       selectedPoints = [];
       console.debug('[plotly_deselect] 選択解除');
+      if(rangeSelectEnabled){
+        try{ if(window.Plotly && plotDiv){ safeRelayout(plotDiv, {'dragmode':'select'}); } }catch(_){/* noop */}
+      }
     });
     
     // ダブルクリックによる点追加やデフォルト操作は許容（別処理はしない）
