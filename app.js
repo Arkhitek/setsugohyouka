@@ -44,7 +44,7 @@
   const cancelPointEditButton = document.getElementById('cancelPointEdit');
   const toggleDragMoveButton = document.getElementById('toggleDragMove');
 
-  // ドラッグ移動モード（ボタンONの間、Ctrl+Shift不要で点ドラッグ可能。パン/ズームを抑止）
+  // ドラッグ移動モード（ボタンONの間のみ点ドラッグ可能。パン/ズームを抑止）
   let dragMoveEnabled = false;
 
   // 履歴管理 (Undo/Redo)
@@ -2356,14 +2356,10 @@
       }
     });
     
-    // マウスダウン: トグルON または Ctrl+Shift 押下中かつ包絡線点上ならドラッグ開始
+  // マウスダウン: トグルONかつ包絡線点上ならドラッグ開始（Ctrl+Shift 操作は廃止）
     let mousedownHandler = function(e){
-      const ctrlOrMeta = e.ctrlKey || e.metaKey;
-      const allowDrag = dragMoveEnabled || (ctrlOrMeta && e.shiftKey);
-      if(!allowDrag){
-        // トグルON時はパン/ズームを抑止（選択点ヒット時のみドラッグさせる設計）
-        if(dragMoveEnabled){ e.stopImmediatePropagation(); e.preventDefault(); }
-        return;
+      if(!dragMoveEnabled){
+        return; // ドラッグ移動モードがOFFなら何もしない
       }
       
       // 選択中の点が存在しない場合はドラッグ不可

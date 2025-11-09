@@ -64,7 +64,7 @@
         <p><strong>点をクリック</strong>してダイアログで編集：</p>
         <ul>
           <li><strong>数値変更</strong>：入力欄で変形・荷重を編集（リアルタイム反映）</li>
-          <li><strong>点のドラッグ移動</strong>：<strong>Ctrl+Shift</strong>を押しながら点をドラッグすると座標を移動できます（ズーム/パンと干渉しません）</li>
+          <li><strong>点のドラッグ移動</strong>：「マウスドラッグ移動ON」ボタンを押して有効化すると、パン・ズームを抑止して点のみドラッグ移動できます</li>
           <li><strong>ライブ同期</strong>：ドラッグ中は編集ダイアログの <code>γ</code>・<code>P</code> 入力値も<strong>リアルタイム更新</strong>されます</li>
           <li><strong>点を追加</strong>：選択点と次の点の間に新しい点を挿入</li>
           <li><strong>削除</strong>：選択点を削除（最低2点は残ります）</li>
@@ -177,17 +177,17 @@
         <h3 style="margin:0;">点の座標を編集</h3>
       </div>
       <p style="margin:8px 0 0; color:#666; font-size:12px;">
-        ヒント: プロット上で<strong>Ctrl+Shift</strong>を押しながら点をドラッグすると移動できます。
+        ヒント: 「マウスドラッグ移動ON」ボタンを押すと、パン・ズームを抑止して点のドラッグ移動ができます。
         ドラッグ中は下の入力欄の <code>δ</code>・<code>P</code> もリアルタイムに連動更新されます。
       </p>
       <label>変形 δ (mm): <input type="number" id="edit_gamma" step="0.0001" /></label>
       <label>荷重 P (kN): <input type="number" id="edit_load" step="0.1" /></label>
-      <div class="modal-actions">
-        <button id="toggleDragMove" type="button">マウスドラッグ移動ON</button>
-        <button id="addPointEdit" class="add">点を追加</button>
-        <button id="deletePointEdit" class="danger">削除</button>
-        <button id="applyPointEdit">適用</button>
-        <button id="cancelPointEdit">キャンセル</button>
+      <div class="modal-actions" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; align-items:stretch;">
+        <button id="toggleDragMove" type="button" style="width:100%">マウスドラッグ移動ON</button>
+        <button id="addPointEdit" class="add" style="width:100%">点を追加</button>
+        <button id="deletePointEdit" class="danger" style="width:100%">削除</button>
+        <button id="applyPointEdit" style="width:100%">適用</button>
+        <button id="cancelPointEdit" style="width:100%">キャンセル</button>
       </div>
     </div>
   </div>
