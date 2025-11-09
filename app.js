@@ -274,7 +274,7 @@
     deletePointEditButton.onclick = function(){
       // 優先: 範囲選択で複数点が選ばれている場合は一括削除
       const sel = Array.isArray(window._selectedEnvelopePoints) ? window._selectedEnvelopePoints.slice() : [];
-      if(rangeSelectEnabled && sel.length > 0 && Array.isArray(envelopeData)){
+      if(sel.length > 0 && Array.isArray(envelopeData)){
         // 残点が2点未満にならないように保護
         const remaining = envelopeData.length - sel.length;
         if(remaining < 2){
@@ -2287,6 +2287,7 @@
       if(pt.curveNumber === 2){
         selectedPointIndex = pt.pointIndex;
         window._selectedEnvelopePoint = pt.pointIndex;
+        try{ window._selectedEnvelopePoints = []; }catch(_){ /* noop */ }
         // 視覚的に選択反映
         highlightSelectedPoint(editableEnvelope);
         
@@ -2318,6 +2319,7 @@
     plotDiv.on('plotly_selected', function(eventData){
       if(!eventData || !eventData.points) {
         selectedPoints = [];
+        try{ window._selectedEnvelopePoints = []; }catch(_){ /* noop */ }
         return;
       }
       // 包絡線点トレース（curveNumber === 2）のみを抽出
@@ -2325,6 +2327,7 @@
         .filter(pt => pt.curveNumber === 2)
         .map(pt => pt.pointIndex);
       console.debug('[plotly_selected] 選択された包絡線点:', selectedPoints);
+      try{ window._selectedEnvelopePoints = selectedPoints.slice(); }catch(_){ /* noop */ }
       // 範囲選択ONなら、選択完了後もselectモード維持
       if(rangeSelectEnabled){
         try{ if(window.Plotly && plotDiv){ safeRelayout(plotDiv, {'dragmode':'select'}); } }catch(_){/* noop */}
@@ -2334,6 +2337,7 @@
     // 選択解除
     plotDiv.on('plotly_deselect', function(){
       selectedPoints = [];
+      try{ window._selectedEnvelopePoints = []; }catch(_){ /* noop */ }
       console.debug('[plotly_deselect] 選択解除');
       if(rangeSelectEnabled){
         try{ if(window.Plotly && plotDiv){ safeRelayout(plotDiv, {'dragmode':'select'}); } }catch(_){/* noop */}
@@ -2370,6 +2374,7 @@
           pushHistory(editableEnvelope);
           appendLog(`包絡線点 ${selectedPoints.length}個 を一括削除しました`);
           selectedPoints = [];
+          try{ window._selectedEnvelopePoints = []; }catch(_){ /* noop */ }
           selectedPointIndex = -1;
           window._selectedEnvelopePoint = -1;
           recalculateFromEnvelope(editableEnvelope);
