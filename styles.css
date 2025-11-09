@@ -118,3 +118,8 @@ h3{color:#2c3e50;border-left:4px solid #3498db;padding-left:10px;margin-top:20px
 .modal-content input{width:100%;margin-top:4px}
 .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:8px}
 .modal-actions button{flex:0 0 auto;width:auto;padding:6px 14px;margin-top:0}
+/* 追加: キャンセル赤・ドラッグ緑専用クラス */
+button.cancel-red{background:#e74c3c;color:#fff;}
+button.cancel-red:hover{background:#c0392b;}
+button.drag-green{background:#27ae60;color:#fff;}
+button.drag-green:hover{background:#229954;}
