@@ -174,7 +174,7 @@
         }
         updateBtnUI();
         // 有効化時はポインタヒント
-        if(plotDiv){ plotDiv.style.cursor = dragMoveEnabled ? 'move' : 'default'; }
+        if(plotDiv){ plotDiv.style.cursor = dragMoveEnabled ? 'grab' : 'default'; }
       };
     }
 
@@ -243,7 +243,7 @@
     // ダイアログを閉じたらドラッグ移動モードを自動OFF
     dragMoveEnabled = false;
   if(toggleDragMoveButton){ toggleDragMoveButton.textContent = 'マウスドラッグ移動ON'; toggleDragMoveButton.style.filter=''; toggleDragMoveButton.classList.remove('active-bright'); }
-    if(plotDiv){ plotDiv.style.cursor = 'default'; }
+  if(plotDiv){ plotDiv.style.cursor = 'default'; }
     // 範囲選択も自動OFFしてパンへ戻す
     rangeSelectEnabled = false;
     if(toggleRangeSelectButton){ toggleRangeSelectButton.textContent='範囲選択ON'; toggleRangeSelectButton.style.background=''; }
@@ -2492,7 +2492,11 @@
       const pt = data.points[0];
       // 包絡線点（curveNumber === 2）にホバー時、カーソルをポインタに
       if(pt.curveNumber === 2){
-        plotDiv.style.cursor = 'pointer';
+        if(dragMoveEnabled){
+          plotDiv.style.cursor = 'grab';
+        } else {
+          plotDiv.style.cursor = 'pointer';
+        }
       } else {
         plotDiv.style.cursor = 'default';
       }
@@ -2500,7 +2504,7 @@
     
     plotDiv.on('plotly_unhover', function(){
       if(!shiftDragging){
-        plotDiv.style.cursor = 'default';
+        plotDiv.style.cursor = dragMoveEnabled ? 'grab' : 'default';
       }
     });
     
@@ -2541,7 +2545,7 @@
         shiftDragIndex = selectedIdx;
         shiftDragStartX = clickX;
         shiftDragStartY = clickY;
-        plotDiv.style.cursor = 'move';
+  plotDiv.style.cursor = 'grabbing';
         
         // Plotlyデフォルトのズーム/パンはイベント抑止で無効化（dragmodeの変更は行わない）
         
@@ -2631,9 +2635,9 @@
           pointTooltip.style.display = 'none';
         }
         
-        shiftDragging = false;
-        shiftDragIndex = -1;
-        plotDiv.style.cursor = 'default';
+  shiftDragging = false;
+  shiftDragIndex = -1;
+  plotDiv.style.cursor = dragMoveEnabled ? 'grab' : 'default';
         
         // Plotlyのドラッグモードを復元（エラーは握りつぶし）
         if(window.Plotly && plotDiv){
