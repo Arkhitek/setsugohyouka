@@ -67,6 +67,8 @@ button.edit-mode.active:hover{background:#c0392b}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:15px}
 .center-button{display:flex;justify-content:center;margin-top:10px;gap:12px}
 .center-button button{width:auto;max-width:400px}
+/* インポートボタンを右端へ寄せる: flex の order を利用 */
+#importExcelButton{order:99}
 /* Horizontal paste button group */
 .paste-buttons{display:flex;gap:10px;flex-wrap:nowrap;margin-top:15px}
 .paste-buttons button{flex:1 1 0;min-width:0;margin-top:0}

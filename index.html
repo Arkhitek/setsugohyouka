@@ -150,9 +150,9 @@
     </div>
 
     <div class="center-button">
-      <button id="importExcelButton" class="download">結果Excelインポート</button>
       <button id="downloadExcelButton" class="download" disabled>結果Excelダウンロード</button>
       <button id="generatePdfButton" class="download" disabled>結果レポート作成(PDF)</button>
+      <button id="importExcelButton" class="download">結果Excelインポート</button>
       <input id="importExcelInput" type="file" accept=".xlsx" style="display:none" />
     </div>
   </div>
@@ -184,21 +184,26 @@
       <label>変形 δ (mm): <input type="number" id="edit_gamma" step="0.0001" /></label>
       <label>荷重 P (kN): <input type="number" id="edit_load" step="0.1" /></label>
       <div class="modal-actions" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; align-items:stretch;">
-        <!-- 1行目 -->
+        <!-- 1行目：操作トグル -->
         <div style="grid-column:1 / span 2; display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
           <button id="toggleDragMove" type="button" class="drag-green" style="width:100%">マウスドラッグ移動ON</button>
           <button id="toggleRangeSelect" type="button" style="width:100%">範囲選択ON</button>
         </div>
-        <!-- 2行目: 4列グリッド（点追加/削除 + 前/次選択） -->
-        <div style="grid-column:1 / span 2; display:grid; grid-template-columns: repeat(4, 1fr); gap:8px;">
+        <!-- 2行目：前/次の点を選択（矢印付き） -->
+        <div style="grid-column:1 / span 2; display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+          <button id="selectPrevPoint" type="button" style="width:100%">◀ 前の点を選択</button>
+          <button id="selectNextPoint" type="button" style="width:100%">次の点を選択 ▶</button>
+        </div>
+        <!-- 3行目：点を追加/削除 -->
+        <div style="grid-column:1 / span 2; display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
           <button id="addPointEdit" class="add" style="width:100%">点を追加</button>
           <button id="deletePointEdit" class="danger" style="width:100%">削除</button>
-          <button id="selectPrevPoint" type="button" style="width:100%">前の点を選択</button>
-          <button id="selectNextPoint" type="button" style="width:100%">次の点を選択</button>
         </div>
-        <!-- 3行目 -->
-        <button id="applyPointEdit" style="width:100%">適用</button>
-  <button id="cancelPointEdit" class="cancel-red" style="width:100%">キャンセル</button>
+        <!-- 4行目：適用/キャンセル -->
+        <div style="grid-column:1 / span 2; display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+          <button id="applyPointEdit" style="width:100%">適用</button>
+          <button id="cancelPointEdit" class="cancel-red" style="width:100%">キャンセル</button>
+        </div>
       </div>
     </div>
   </div>
