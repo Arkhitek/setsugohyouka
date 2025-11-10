@@ -128,6 +128,16 @@ button.drag-green:hover{background:#229954;}
 /* ON状態で明転させるためのトグル用クラス */
 button.drag-green.active-bright{filter:brightness(1.25); box-shadow:0 0 0 2px rgba(39,174,96,0.35) inset;}
 
+/* Results grid: PCでは2列にしてコンパクト表示 */
+.results-grid{display:block}
+@media (min-width:900px){
+	.results-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+	.results-grid .result-block{padding:6px}
+	/* 少し文字を詰める */
+	#results table{font-size:0.94em}
+	#results h3{margin-top:0}
+}
+
 /* ================= Cursor State Overrides ================= */
 /* Plotly の pan モードが常に hand 系カーソルを出す問題への対策: 基本は矢印(default) */
 #plot .draglayer, #plot .plot-container .draglayer { cursor: default !important; }

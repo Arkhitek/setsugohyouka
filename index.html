@@ -210,37 +210,43 @@
 
   <div id="results" class="card">
     <h2>解析結果</h2>
-    
-    <h3>基礎性能値</h3>
-    <table id="results-table-basic">
-      <tbody id="resultsBasic">
-        <tr><td>最大耐力 Pmax (kN)</td><td id="val_pmax">-</td></tr>
-        <tr><td>降伏耐力 Py (kN)</td><td id="val_py">-</td></tr>
-  <tr><td>降伏変位 δy (mm)</td><td id="val_dy">-</td></tr>
-        <tr><td>初期剛性 K (kN/mm)</td><td id="val_K">-</td></tr>
-        <tr><td>終局耐力 Pu (kN)</td><td id="val_pu">-</td></tr>
-  <tr><td>降伏点変位 δv (mm)</td><td id="val_dv">-</td></tr>
-  <tr><td>終局変位 δu (mm)</td><td id="val_du">-</td></tr>
-        <tr><td>塑性率 μ</td><td id="val_mu">-</td></tr>
-        <tr><td>構造特性係数 Ds (1/√(2μ-1))</td><td id="val_ds">-</td></tr>
-      </tbody>
-    </table>
 
-    <h3>短期基準せん断耐力 P0 の算定根拠</h3>
-    <table id="results-table-p0">
-      <tbody id="resultsP0">
-        <tr><td>(a) 降伏耐力 Py (kN)</td><td id="val_p0_a">-</td></tr>
-  <tr><td>(b) 最大耐力基準 Pmax×2/3 (kN)</td><td id="val_p0_b">-</td></tr>
-  <tr class="highlight"><td>短期基準せん断耐力 P0 = Min(a,b) (kN)</td><td id="val_p0">-</td></tr>
-      </tbody>
-    </table>
+    <div class="results-grid">
+      <div class="result-block">
+        <h3>基礎性能値</h3>
+        <table id="results-table-basic">
+          <tbody id="resultsBasic">
+            <tr><td>最大耐力 Pmax (kN)</td><td id="val_pmax">-</td></tr>
+            <tr><td>降伏耐力 Py (kN)</td><td id="val_py">-</td></tr>
+            <tr><td>降伏変位 δy (mm)</td><td id="val_dy">-</td></tr>
+            <tr><td>初期剛性 K (kN/mm)</td><td id="val_K">-</td></tr>
+            <tr><td>終局耐力 Pu (kN)</td><td id="val_pu">-</td></tr>
+            <tr><td>降伏点変位 δv (mm)</td><td id="val_dv">-</td></tr>
+            <tr><td>終局変位 δu (mm)</td><td id="val_du">-</td></tr>
+            <tr><td>塑性率 μ</td><td id="val_mu">-</td></tr>
+            <tr><td>構造特性係数 Ds (1/√(2μ-1))</td><td id="val_ds">-</td></tr>
+          </tbody>
+        </table>
+      </div>
 
-    <h3>最終評価</h3>
-    <table id="results-table-final">
-      <tbody id="resultsFinal">
-        <tr><td>短期許容せん断耐力 Pa = P0×α (kN)</td><td id="val_pa">-</td></tr>
-      </tbody>
-    </table>
+      <div class="result-block">
+        <h3>短期基準せん断耐力 P0 の算定根拠</h3>
+        <table id="results-table-p0">
+          <tbody id="resultsP0">
+            <tr><td>(a) 降伏耐力 Py (kN)</td><td id="val_p0_a">-</td></tr>
+            <tr><td>(b) 最大耐力基準 Pmax×2/3 (kN)</td><td id="val_p0_b">-</td></tr>
+            <tr class="highlight"><td>短期基準せん断耐力 P0 = Min(a,b) (kN)</td><td id="val_p0">-</td></tr>
+          </tbody>
+        </table>
+
+        <h3>最終評価</h3>
+        <table id="results-table-final">
+          <tbody id="resultsFinal">
+            <tr><td>短期許容せん断耐力 Pa = P0×α (kN)</td><td id="val_pa">-</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <!-- 包絡線概念図を最下段に表示 -->
