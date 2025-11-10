@@ -243,7 +243,12 @@
     // ダイアログを閉じたらドラッグ移動モードを自動OFF
     dragMoveEnabled = false;
   if(toggleDragMoveButton){ toggleDragMoveButton.textContent = 'マウスドラッグ移動ON'; toggleDragMoveButton.style.filter=''; toggleDragMoveButton.classList.remove('active-bright'); }
-  if(plotDiv){ plotDiv.style.cursor = 'default'; }
+  if(plotDiv){
+    plotDiv.style.cursor = 'default';
+    plotDiv.classList.remove('drag-point-active');
+    plotDiv.classList.remove('drag-point-hover');
+    plotDiv.classList.remove('pointer-mode');
+  }
     // 範囲選択も自動OFFしてパンへ戻す
     rangeSelectEnabled = false;
     if(toggleRangeSelectButton){ toggleRangeSelectButton.textContent='範囲選択ON'; toggleRangeSelectButton.style.background=''; }
@@ -2495,19 +2500,23 @@
         // ドラッグ移動可能条件: トグルON かつ "選択中の点" の上にホバーしている場合のみ hand 表示
         const isSelectedHovered = (typeof window._selectedEnvelopePoint === 'number' && pt.pointIndex === window._selectedEnvelopePoint);
         if(dragMoveEnabled && isSelectedHovered){
-          plotDiv.style.cursor = 'grab';
+          plotDiv.classList.add('drag-point-hover');
+          plotDiv.classList.remove('pointer-mode');
         } else {
-          plotDiv.style.cursor = 'pointer';
+          plotDiv.classList.add('pointer-mode');
+          plotDiv.classList.remove('drag-point-hover');
         }
       } else {
-        plotDiv.style.cursor = 'default';
+        plotDiv.classList.remove('drag-point-hover');
+        plotDiv.classList.remove('pointer-mode');
       }
     });
     
     plotDiv.on('plotly_unhover', function(){
       if(!shiftDragging){
-        // ホバーを離れたら既定に戻す（handは条件付き表示のみ）
-        plotDiv.style.cursor = 'default';
+        // ホバー離脱時はクラスをクリア
+        plotDiv.classList.remove('drag-point-hover');
+        plotDiv.classList.remove('pointer-mode');
       }
     });
     
@@ -2539,7 +2548,7 @@
       const dist = Math.sqrt((clickX - px)**2 + (clickY - py)**2);
       
       // 35px以内なら選択点と判定（ヒット領域）
-      if(dist < 35){
+  if(dist < 35){
         // Plotlyのデフォルトドラッグを無効化（先に実行）
         e.stopImmediatePropagation();
         e.preventDefault();
@@ -2548,7 +2557,8 @@
         shiftDragIndex = selectedIdx;
         shiftDragStartX = clickX;
         shiftDragStartY = clickY;
-  plotDiv.style.cursor = 'grabbing';
+  plotDiv.classList.add('drag-point-active');
+  plotDiv.classList.remove('drag-point-hover');
         
         // Plotlyデフォルトのズーム/パンはイベント抑止で無効化（dragmodeの変更は行わない）
         
@@ -2640,8 +2650,10 @@
         
   shiftDragging = false;
   shiftDragIndex = -1;
-  // マウスアップ時は既定に戻す（再度ホバーすれば条件に応じて hand 表示）
-  plotDiv.style.cursor = 'default';
+  // マウスアップ時はクラスをクリア（再ホバーで再設定）
+  plotDiv.classList.remove('drag-point-active');
+  plotDiv.classList.remove('drag-point-hover');
+  plotDiv.classList.remove('pointer-mode');
         
         // Plotlyのドラッグモードを復元（エラーは握りつぶし）
         if(window.Plotly && plotDiv){

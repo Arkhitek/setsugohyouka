@@ -127,3 +127,13 @@ button.drag-green{background:#27ae60;color:#fff;}
 button.drag-green:hover{background:#229954;}
 /* ON状態で明転させるためのトグル用クラス */
 button.drag-green.active-bright{filter:brightness(1.25); box-shadow:0 0 0 2px rgba(39,174,96,0.35) inset;}
+
+/* ================= Cursor State Overrides ================= */
+/* Plotly の pan モードが常に hand 系カーソルを出す問題への対策: 基本は矢印(default) */
+#plot .draglayer, #plot .plot-container .draglayer { cursor: default !important; }
+/* 選択点ホバー中でドラッグ可能な条件のみ手カーソル */
+#plot.drag-point-hover .draglayer { cursor: grab !important; }
+/* ドラッグ実行中 */
+#plot.drag-point-active .draglayer { cursor: grabbing !important; }
+/* 通常ホバー時に点編集可能性を示すポインタ（JSで drag-point-hover が付かない場合） */
+#plot.pointer-mode .draglayer { cursor: pointer !important; }
