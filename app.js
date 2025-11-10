@@ -44,6 +44,10 @@
   const cancelPointEditButton = document.getElementById('cancelPointEdit');
   const toggleDragMoveButton = document.getElementById('toggleDragMove');
   const toggleRangeSelectButton = document.getElementById('toggleRangeSelect');
+  const selectPrevPointButton = document.getElementById('selectPrevPoint');
+  const selectNextPointButton = document.getElementById('selectNextPoint');
+  const importExcelButton = document.getElementById('importExcelButton');
+  const importExcelInput = document.getElementById('importExcelInput');
 
   // ドラッグ移動モード（ボタンONの間のみ点ドラッグ可能。パン/ズームを抑止）
   let dragMoveEnabled = false;
@@ -553,6 +557,12 @@
   if(openPointEditButton) openPointEditButton.addEventListener('click', openPointEditDialog);
   if(applyPointEditButton) applyPointEditButton.addEventListener('click', applyPointEdit);
   if(cancelPointEditButton) cancelPointEditButton.addEventListener('click', closePointEditDialog);
+  if(selectPrevPointButton) selectPrevPointButton.addEventListener('click', () => moveSelectedPoint(-1));
+  if(selectNextPointButton) selectNextPointButton.addEventListener('click', () => moveSelectedPoint(1));
+  if(importExcelButton && importExcelInput){
+    importExcelButton.addEventListener('click', () => importExcelInput.click());
+    importExcelInput.addEventListener('change', handleImportExcelFile);
+  }
 
 
   function clearInputData(){
@@ -2617,6 +2627,13 @@
       'marker.size': [sizes]
     }, [2]); // trace 2: 包絡線点
     if(openPointEditButton) openPointEditButton.disabled = (window._selectedEnvelopePoint < 0);
+    // 前/次ボタンの活性制御
+    if(selectPrevPointButton){
+      selectPrevPointButton.disabled = !(window._selectedEnvelopePoint > 0);
+    }
+    if(selectNextPointButton){
+      selectNextPointButton.disabled = !(window._selectedEnvelopePoint >= 0 && window._selectedEnvelopePoint < editableEnvelope.length - 1);
+    }
   }
   
   function updateEnvelopePlot(editableEnvelope){
@@ -2653,6 +2670,107 @@
     appendLog('包絡線点を削除しました（残り' + editableEnvelope.length + '点）');
     envelopeData = editableEnvelope.map(p=>({...p}));
     updateHistoryButtons();
+  }
+
+  // 前/次選択移動
+  function moveSelectedPoint(direction){
+    if(!envelopeData || !Array.isArray(envelopeData) || envelopeData.length === 0) return;
+    if(typeof window._selectedEnvelopePoint !== 'number' || window._selectedEnvelopePoint < 0){
+      // まだ選択が無いときは先頭を選択
+      window._selectedEnvelopePoint = 0;
+    } else {
+      const next = window._selectedEnvelopePoint + direction;
+      if(next < 0 || next >= envelopeData.length) return; // 範囲外
+      window._selectedEnvelopePoint = next;
+    }
+    // 再描画で赤丸更新
+    renderPlot(envelopeData, analysisResults);
+    // ダイアログ開いている場合は内容更新
+    if(pointEditDialog && pointEditDialog.style.display !== 'none'){
+      openPointEditDialog();
+    }
+  }
+
+  // ===== Excelインポート機能 =====
+  async function handleImportExcelFile(ev){
+    const file = importExcelInput.files && importExcelInput.files[0];
+    if(!file){ return; }
+    if(!window.ExcelJS){ alert('ExcelJSライブラリが読み込まれていません'); return; }
+    try{
+      const buf = await file.arrayBuffer();
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(buf);
+      // Envelopeシート読み込み
+      const wsEnv = wb.getWorksheet('Envelope');
+      if(!wsEnv){ alert('Envelope シートが見つかりません'); return; }
+      const newEnv = [];
+      wsEnv.eachRow((row, rowNumber) => {
+        if(rowNumber === 1) return; // header
+        const g = row.getCell(1).value;
+        const p = row.getCell(2).value;
+        if(typeof g === 'number' && typeof p === 'number'){
+          newEnv.push({gamma: g, Load: p, gamma0: g});
+        }
+      });
+      if(newEnv.length < 2){ alert('Envelope シートに有効なデータが不足しています'); return; }
+      envelopeData = newEnv;
+      // InputData シートがあれば rawData も復元（包絡線再計算に使用するため）
+      const wsInput = wb.getWorksheet('InputData');
+      if(wsInput){
+        const newRaw = [];
+        wsInput.eachRow((row,rowNumber)=>{
+          if(rowNumber===1) return;
+          const g = row.getCell(1).value;
+          const p = row.getCell(2).value;
+          if(typeof g === 'number' && typeof p === 'number'){
+            newRaw.push({gamma: g, Load: p, gamma0: g});
+          }
+        });
+        if(newRaw.length >= 3){ rawData = newRaw; }
+      }
+      // Summary シートから設定値復元（日本語含）
+      const wsSummary = wb.getWorksheet('Summary');
+      if(wsSummary){
+        // マッピング: 表示名 → 値
+        const map = {};
+        wsSummary.eachRow((row,rowNumber)=>{
+          if(rowNumber===1) return;
+          const key = String(row.getCell(1).value||'').trim();
+          const val = row.getCell(2).value;
+          map[key] = val;
+        });
+        // 可能なら試験体名称復元
+        if(specimen_name && typeof map['試験体名称'] !== 'undefined'){
+          specimen_name.value = String(map['試験体名称']);
+        }
+        // α / 最大変位δmax など
+        if(alpha_factor && typeof map['耐力低減係数 α'] !== 'undefined'){
+          alpha_factor.value = Number(map['耐力低減係数 α']) || alpha_factor.value;
+        }
+        if(max_ultimate_deformation && typeof map['最大変位 δmax'] !== 'undefined'){
+          max_ultimate_deformation.value = Number(map['最大変位 δmax']) || max_ultimate_deformation.value;
+        }
+      }
+      // 解析再計算
+      if(envelopeData.length){
+        const alpha = parseFloat(alpha_factor.value);
+        const delta_u_max = parseFloat(max_ultimate_deformation.value);
+        analysisResults = calculateJTCCMMetrics(envelopeData, delta_u_max, alpha);
+        renderPlot(envelopeData, analysisResults);
+        renderResults(analysisResults);
+        // 履歴初期化
+        historyStack = [cloneEnvelope(envelopeData)];
+        redoStack = [];
+        updateHistoryButtons();
+        appendLog('Excelインポート完了: Envelope/入力/設定を読み込みました');
+      }
+    }catch(err){
+      console.error('Excelインポートエラー:', err);
+      alert('Excelインポートに失敗しました');
+      appendLog('Excelインポートエラー: '+(err && err.message ? err.message: err));
+    }finally{
+      importExcelInput.value = '';
+    }
   }
   
   function addEnvelopePoint(gamma, load, editableEnvelope){
@@ -2990,6 +3108,26 @@
       for(let i=2;i<=wsEnv.rowCount;i++){
         const cg = wsEnv.getCell(i,1); if(typeof cg.value==='number') cg.numFmt='0.000000';
         const cp = wsEnv.getCell(i,2); if(typeof cp.value==='number') cp.numFmt='0.000';
+      }
+
+      // 5) 設定シート（日本語項目付き）
+      let wsSettings = wb.getWorksheet('Settings');
+      if(!wsSettings) wsSettings = wb.addWorksheet('Settings');
+      wsSettings.spliceRows(1, wsSettings.rowCount, ['項目','値','単位']);
+      const envSideLabel = (envelope_side && envelope_side.value === 'negative') ? '負側' : '正側';
+      const maxDu = Number(max_ultimate_deformation.value);
+      wsSettings.addRow(['試験体名称', specimen, '']);
+      wsSettings.addRow(['耐力低減係数 α', Number(alpha_factor.value), '']);
+      wsSettings.addRow(['最大変位 δmax', maxDu, 'mm']);
+      wsSettings.addRow(['評価対象包絡線', envSideLabel, '']);
+      // 体裁
+      wsSettings.columns.forEach(c=> c.width = 22);
+      for(let i=2;i<=wsSettings.rowCount;i++){
+        const label = wsSettings.getCell(i,1).value;
+        const cell = wsSettings.getCell(i,2);
+        if(typeof cell.value === 'number'){
+          if(label === '最大変位 δmax') cell.numFmt = '#,##0'; else cell.numFmt = '#,##0.00';
+        }
       }
 
       // 4) グラフシート (画像埋込み)
