@@ -173,8 +173,8 @@
           // ドラッグ移動はパン/ズーム抑止
         }
         updateBtnUI();
-        // 有効化時はポインタヒント
-        if(plotDiv){ plotDiv.style.cursor = dragMoveEnabled ? 'grab' : 'default'; }
+        // カーソルはホバー時の条件でのみ変更（常時 hand 表示しない）
+        if(plotDiv){ plotDiv.style.cursor = 'default'; }
       };
     }
 
@@ -2492,7 +2492,9 @@
       const pt = data.points[0];
       // 包絡線点（curveNumber === 2）にホバー時、カーソルをポインタに
       if(pt.curveNumber === 2){
-        if(dragMoveEnabled){
+        // ドラッグ移動可能条件: トグルON かつ "選択中の点" の上にホバーしている場合のみ hand 表示
+        const isSelectedHovered = (typeof window._selectedEnvelopePoint === 'number' && pt.pointIndex === window._selectedEnvelopePoint);
+        if(dragMoveEnabled && isSelectedHovered){
           plotDiv.style.cursor = 'grab';
         } else {
           plotDiv.style.cursor = 'pointer';
@@ -2504,7 +2506,8 @@
     
     plotDiv.on('plotly_unhover', function(){
       if(!shiftDragging){
-        plotDiv.style.cursor = dragMoveEnabled ? 'grab' : 'default';
+        // ホバーを離れたら既定に戻す（handは条件付き表示のみ）
+        plotDiv.style.cursor = 'default';
       }
     });
     
@@ -2637,7 +2640,8 @@
         
   shiftDragging = false;
   shiftDragIndex = -1;
-  plotDiv.style.cursor = dragMoveEnabled ? 'grab' : 'default';
+  // マウスアップ時は既定に戻す（再度ホバーすれば条件に応じて hand 表示）
+  plotDiv.style.cursor = 'default';
         
         // Plotlyのドラッグモードを復元（エラーは握りつぶし）
         if(window.Plotly && plotDiv){
