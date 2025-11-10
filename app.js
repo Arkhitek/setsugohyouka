@@ -16,6 +16,18 @@
   // 包絡線フィット範囲キャッシュ
   let cachedEnvelopeRange = null;
 
+  // 編集済み包絡線の保持（設定変更しても点情報を維持）
+  const editedEnvelopeBySide = { positive: null, negative: null };
+  const editedDirtyBySide = { positive: false, negative: false };
+  function getCurrentSide(){
+    return (envelope_side && envelope_side.value === 'negative') ? 'negative' : 'positive';
+  }
+  function setEditedEnvelopeForCurrentSide(env){
+    const side = getCurrentSide();
+    editedEnvelopeBySide[side] = Array.isArray(env) ? env.map(p=>({gamma:p.gamma, Load:p.Load, gamma0:p.gamma0})) : null;
+    editedDirtyBySide[side] = !!(editedEnvelopeBySide[side] && editedEnvelopeBySide[side].length >= 2);
+  }
+
   // === Elements ===
   const gammaInput = document.getElementById('gammaInput');
   const loadInput = document.getElementById('loadInput');
@@ -532,14 +544,39 @@
   // 手動ボタン削除済み: processButton クリックイベント不要
 
   // パラメータ変更時の自動解析
+  // 設定変更時も編集済み包絡線を維持する
+  function recalcOrProcess(reason){
+    try{
+      if(!rawData || rawData.length < 3){ return; }
+      const side = getCurrentSide();
+      const edited = editedEnvelopeBySide[side];
+      if(Array.isArray(edited) && edited.length >= 2){
+        // 既存の編集済み包絡線から再計算のみ
+        envelopeData = edited.map(p=>({ ...p }));
+        recalculateFromEnvelope(envelopeData);
+      }else{
+        processDataDirect();
+      }
+    }catch(err){ console.warn('recalcOrProcess error', err); }
+  }
   const autoInputs = [alpha_factor, max_ultimate_deformation];
   autoInputs.forEach(el => {
     if(!el) return;
-    el.addEventListener('input', () => { if(rawData && rawData.length>=3) scheduleAutoRun(); });
-    el.addEventListener('change', () => { if(rawData && rawData.length>=3) scheduleAutoRun(); });
+    el.addEventListener('input', () => recalcOrProcess('input-change'));
+    el.addEventListener('change', () => recalcOrProcess('input-change'));
   });
   if(envelope_side){
-    envelope_side.addEventListener('change', () => { if(rawData && rawData.length>=3) scheduleAutoRun(); });
+    envelope_side.addEventListener('change', () => {
+      if(!rawData || rawData.length<3){ return; }
+      const side = getCurrentSide();
+      const edited = editedEnvelopeBySide[side];
+      if(Array.isArray(edited) && edited.length>=2){
+        envelopeData = edited.map(p=>({...p}));
+        recalculateFromEnvelope(envelopeData);
+      } else {
+        processDataDirect();
+      }
+    });
   }
   if(show_annotations){
     show_annotations.addEventListener('change', () => {
@@ -1081,7 +1118,12 @@
         return;
       }
 
-      rawData = parsed;
+  rawData = parsed;
+  // 生データを入れ替えたら、過去の手編集は無効化（新データと整合しないため）
+  editedEnvelopeBySide.positive = null;
+  editedEnvelopeBySide.negative = null;
+  editedDirtyBySide.positive = false;
+  editedDirtyBySide.negative = false;
       header = ['Load', 'gamma', 'gamma0'];
   // 自動解析: 旧ボタン無効化不要
 
@@ -1114,6 +1156,21 @@
         return;
       }
 
+      // 既に編集済み包絡線が存在する場合はそれを優先（設定変更時に点情報を維持）
+      const edited = editedEnvelopeBySide[side];
+      if(Array.isArray(edited) && edited.length>=2){
+        envelopeData = edited.map(p=>({...p}));
+        analysisResults = calculateJTCCMMetrics(envelopeData, delta_u_max, alpha);
+        renderPlot(envelopeData, analysisResults);
+        renderResults(analysisResults);
+        if(downloadExcelButton) downloadExcelButton.disabled = false;
+        if(generatePdfButton) generatePdfButton.disabled = false;
+        historyStack = [cloneEnvelope(envelopeData)];
+        redoStack = [];
+        updateHistoryButtons();
+        return;
+      }
+
       // Generate full envelope from direct input data (計算用フル包絡線)
       const fullEnvelope = generateEnvelope(rawData, side);
       if(fullEnvelope.length === 0){
@@ -1140,8 +1197,9 @@
         console.info('[thinEnvelope] 包絡線点を '+displayEnvelope.length+' 点に間引き（δy/δu/ループ最大荷重を保持）');
       }
 
-      // Set envelopeData to display/thinned version for editing
-      envelopeData = displayEnvelope;
+  // Set envelopeData to display/thinned version for editing
+  envelopeData = displayEnvelope;
+  // 初期生成時点では未編集なので記録はしない
 
       // Render results
       renderPlot(envelopeData, analysisResults);
@@ -2714,6 +2772,24 @@
       });
       if(newEnv.length < 2){ alert('Envelope シートに有効なデータが不足しています'); return; }
       envelopeData = newEnv;
+      // 取り込んだ包絡線の側を推定してキャッシュ
+      try{
+        const sign = (function(){
+          for(const pt of newEnv){
+            if(Number.isFinite(pt.Load) && pt.Load !== 0){ return pt.Load > 0 ? 'positive' : 'negative'; }
+            if(Number.isFinite(pt.gamma) && pt.gamma !== 0){ return pt.gamma > 0 ? 'positive' : 'negative'; }
+          }
+          return getCurrentSide();
+        })();
+        // ドロップダウンと不一致なら、UI側を推定側へ合わせる
+        if(envelope_side){
+          const target = (sign === 'negative') ? 'negative' : 'positive';
+          if(envelope_side.value !== target){ envelope_side.value = target; }
+        }
+        // キャッシュ保存
+        editedEnvelopeBySide[sign] = newEnv.map(p=>({ ...p }));
+        editedDirtyBySide[sign] = true;
+      }catch(_){ /* ignore */ }
       // InputData シートがあれば rawData も復元（包絡線再計算に使用するため）
       const wsInput = wb.getWorksheet('InputData');
       if(wsInput){
@@ -2971,6 +3047,8 @@
     try{
       // 編集後の包絡線から特性値を再計算
       envelopeData = editableEnvelope.map(pt => ({...pt}));
+      // 現在側の編集データとして保存
+      setEditedEnvelopeForCurrentSide(envelopeData);
       
       const alpha = parseFloat(alpha_factor.value);
       const delta_u_max = parseFloat(max_ultimate_deformation.value);
