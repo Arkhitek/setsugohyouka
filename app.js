@@ -1342,61 +1342,59 @@
         return indices.map(i => ({...envelope[i]}));
       }
       
-      // 弧長ベースで均等分割して点を配置
+      // 弧長ベースで完全に均等分割して点を配置
       const step = totalLength / (targetPoints - 1);
-      const selected = [];
-      const usedIndices = new Set();
+      const selectedSet = new Set();
       
+      // Step 1: 均等配置による点の選択（必須点は考慮せず純粋に均等）
       for(let j = 0; j < targetPoints; j++){
         const targetArc = j * step;
         
-        // まず、targetArc近傍に必須点があるか確認
-        let mandatoryNearby = -1;
-        let mandatoryDist = Infinity;
-        for(const idx of mandatory){
-          if(usedIndices.has(idx)) continue;
-          const dist = Math.abs(arcLengths[idx] - targetArc);
-          if(dist < step * 0.4 && dist < mandatoryDist){ // step の 40% 以内なら近傍
-            mandatoryDist = dist;
-            mandatoryNearby = idx;
+        // targetArcに最も近い点を選択
+        let bestIdx = -1;
+        let bestDiff = Infinity;
+        
+        for(let i = 0; i < pts.length; i++){
+          const diff = Math.abs(arcLengths[i] - targetArc);
+          if(diff < bestDiff){
+            bestDiff = diff;
+            bestIdx = i;
           }
         }
         
-        if(mandatoryNearby >= 0){
-          // 必須点を優先採用
-          selected.push(mandatoryNearby);
-          usedIndices.add(mandatoryNearby);
-        } else {
-          // targetArcに最も近い未使用点を選択
-          let bestIdx = -1;
-          let bestDiff = Infinity;
-          
-          for(let i = 0; i < pts.length; i++){
-            if(usedIndices.has(i)) continue;
-            
-            const diff = Math.abs(arcLengths[i] - targetArc);
-            if(diff < bestDiff){
-              bestDiff = diff;
-              bestIdx = i;
-            }
-          }
-          
-          if(bestIdx >= 0){
-            selected.push(bestIdx);
-            usedIndices.add(bestIdx);
-          }
+        if(bestIdx >= 0){
+          selectedSet.add(bestIdx);
         }
       }
       
-      // 未採用の必須点があれば追加（念のため）
-      for(const idx of mandatory){
-        if(!usedIndices.has(idx)){
-          selected.push(idx);
+      // Step 2: 選択された点の中で、必須点に最も近い点を必須点に置き換え
+      for(const mandatoryIdx of mandatory){
+        if(selectedSet.has(mandatoryIdx)) continue; // 既に選択されていればOK
+        
+        // 必須点に最も近い選択済み点を探す
+        let closestSelected = -1;
+        let closestDist = Infinity;
+        
+        for(const selIdx of selectedSet){
+          const dist = Math.abs(arcLengths[mandatoryIdx] - arcLengths[selIdx]);
+          if(dist < closestDist){
+            closestDist = dist;
+            closestSelected = selIdx;
+          }
+        }
+        
+        // 必須点が十分近ければ（step の 50% 以内）、置き換え
+        if(closestSelected >= 0 && closestDist < step * 0.5){
+          selectedSet.delete(closestSelected);
+          selectedSet.add(mandatoryIdx);
+        } else {
+          // 遠い場合は追加（念のため）
+          selectedSet.add(mandatoryIdx);
         }
       }
       
       // インデックスでソートして返す
-      selected.sort((a, b) => a - b);
+      const selected = Array.from(selectedSet).sort((a, b) => a - b);
       return selected.map(i => ({...envelope[i]}));
       
     }catch(err){
