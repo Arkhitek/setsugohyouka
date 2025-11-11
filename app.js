@@ -1321,23 +1321,21 @@
       
       // 局所ピークは不要（均等配置で十分カバーされる）
       
-      console.log(`[thinEnvelope] 必須点の内訳: mandatory.size=${mandatory.size}, mandatoryGammas=${mandatoryGammas ? mandatoryGammas.length : 0}`);
+      console.log(`[thinEnvelope] 必須点の内訳: 先頭/終端=2, Pmax=1, mandatoryGammas=${mandatoryGammas ? mandatoryGammas.length : 0}, 合計=${mandatory.size}`);
       
-      // 必須点が多すぎる場合は、最重要点のみを新しい必須点セットとする
-      let coreMandatory = new Set();
-      if(mandatory.size >= targetPoints * 0.5){
-        console.warn(`[thinEnvelope] 必須点数(${mandatory.size})が多すぎるため、最重要点のみに制限します`);
+      // 必須点が多すぎる場合は、最小限の必須点のみに絞る
+      if(mandatory.size > targetPoints * 0.5){
+        console.warn(`[thinEnvelope] 必須点数(${mandatory.size})が多すぎるため、最小限の必須点のみに制限します`);
         
-        // 先頭と終端
-        coreMandatory.add(0);
-        coreMandatory.add(pts.length - 1);
+        // 最小限の必須点のみを残す
+        mandatory.clear();
+        mandatory.add(0); // 先頭
+        mandatory.add(pts.length - 1); // 終端
+        mandatory.add(idxPmax); // Pmax
         
-        // Pmax
-        coreMandatory.add(idxPmax);
-        
-        // δy, δu（mandatoryGammas の最初の2つのみ）
-        if(Array.isArray(mandatoryGammas)){
-          for(let i = 0; i < Math.min(2, mandatoryGammas.length); i++){
+        // δy, δu のみ追加（loopGammasは除外）
+        if(Array.isArray(mandatoryGammas) && mandatoryGammas.length >= 2){
+          for(let i = 0; i < 2; i++){
             const gTarget = mandatoryGammas[i];
             if(!Number.isFinite(gTarget)) continue;
             let bestIdx = -1;
@@ -1349,17 +1347,16 @@
                 bestIdx = j;
               }
             }
-            if(bestIdx >= 0) coreMandatory.add(bestIdx);
+            if(bestIdx >= 0) mandatory.add(bestIdx);
           }
         }
         
-        console.log(`[thinEnvelope] 必須点を ${mandatory.size} 点から ${coreMandatory.size} 点に削減`);
-        mandatory = coreMandatory;
+        console.log(`[thinEnvelope] 必須点を ${mandatory.size} 点に削減しました`);
       }
       
-      // 必須点数が目標を超える場合（削減後でも）
+      // それでも必須点数が目標を超える場合
       if(mandatory.size >= targetPoints){
-        console.warn(`[thinEnvelope] 必須点数(${mandatory.size})が目標点数(${targetPoints})以上のため、必須点のみ返します`);
+        console.warn(`[thinEnvelope] 必須点数(${mandatory.size})が目標点数(${targetPoints})以上のため、必須点のみを返します`);
         const indices = Array.from(mandatory).sort((a, b) => a - b);
         return indices.map(i => ({...envelope[i]}));
       }
