@@ -1185,15 +1185,12 @@
       // Calculate characteristic points using full envelope (精度優先)
       analysisResults = calculateJTCCMMetrics(fullEnvelope, delta_u_max, alpha);
 
-      // 100点を超える場合に間引き処理（重要点を保持しつつ全体的に満遍なく）
+      // 100点を超える場合に均等間引き（重要点は保持）
       let displayEnvelope = fullEnvelope;
       if(fullEnvelope.length > 100){
         const mandatoryGammas = [];
-        // 重要点: δy, δu を必ず保持
         if(Number.isFinite(analysisResults.delta_y)) mandatoryGammas.push(analysisResults.delta_y);
         if(Number.isFinite(analysisResults.delta_u)) mandatoryGammas.push(analysisResults.delta_u);
-        // Pmax位置も保持
-        if(Number.isFinite(analysisResults.Pmax_gamma)) mandatoryGammas.push(analysisResults.Pmax_gamma);
         // 原データからループ（反転点）を検出し、各ループ最大荷重点のγを保持
         try{
           const loopGammas = detectLoopPeakGammas(rawData, side);
@@ -1201,9 +1198,9 @@
             loopGammas.forEach(g => { if(Number.isFinite(g)) mandatoryGammas.push(g); });
           }
         }catch(err){ console.warn('ループピーク検出エラー', err); }
-        // 目標点数を80〜100点に設定
-        displayEnvelope = thinEnvelope(fullEnvelope, 80, 100, mandatoryGammas);
-        console.info('[間引き] 包絡線点を '+fullEnvelope.length+' 点から '+displayEnvelope.length+' 点に間引き（重要点保持）');
+        // 目標点数を80点に設定（60〜100点の範囲で調整可能）
+        displayEnvelope = thinEnvelopeUniform(fullEnvelope, 80, mandatoryGammas);
+        console.info('[間引き] 包絡線点を '+fullEnvelope.length+' 点から '+displayEnvelope.length+' 点に均等間引き（重要点保持）');
       }
 
       envelopeData = displayEnvelope;
@@ -1227,6 +1224,114 @@
 
 
   // === Envelope Generation (Section II.3) ===
+  // 均等間引き: 重要点を保持しつつ、包絡線全体で点の間隔が均等になるように間引く
+  function thinEnvelopeUniform(envelope, targetPoints, mandatoryGammas){
+    try{
+      if(!Array.isArray(envelope) || envelope.length <= targetPoints) return envelope.map(pt=>({...pt}));
+      
+      const pts = envelope.map(pt => ({x: pt.gamma, y: pt.Load}));
+      
+      // 重要点を特定（必ず保持）
+      const mandatory = new Set();
+      
+      // 先頭と最終点は必須
+      mandatory.add(0);
+      mandatory.add(pts.length - 1);
+      
+      // 最大荷重点（Pmax）
+      let idxPmax = 0;
+      let maxAbs = -Infinity;
+      for(let i = 0; i < pts.length; i++){
+        const absLoad = Math.abs(pts[i].y);
+        if(absLoad > maxAbs){
+          maxAbs = absLoad;
+          idxPmax = i;
+        }
+      }
+      mandatory.add(idxPmax);
+      
+      // 指定されたγ値に最も近い点（δy, δu等）
+      if(Array.isArray(mandatoryGammas)){
+        mandatoryGammas.forEach(gTarget => {
+          if(!Number.isFinite(gTarget)) return;
+          let bestIdx = -1;
+          let bestDiff = Infinity;
+          for(let i = 0; i < pts.length; i++){
+            const diff = Math.abs(pts[i].x - gTarget);
+            if(diff < bestDiff){
+              bestDiff = diff;
+              bestIdx = i;
+            }
+          }
+          if(bestIdx >= 0) mandatory.add(bestIdx);
+        });
+      }
+      
+      // 局所ピーク（ループの最大荷重点）
+      for(let i = 1; i < pts.length - 1; i++){
+        const y0 = Math.abs(pts[i - 1].y);
+        const y1 = Math.abs(pts[i].y);
+        const y2 = Math.abs(pts[i + 1].y);
+        if(y1 >= y0 && y1 >= y2){
+          mandatory.add(i);
+        }
+      }
+      
+      // 弧長（累積距離）を計算
+      const arcLengths = [0];
+      for(let i = 1; i < pts.length; i++){
+        const dx = pts[i].x - pts[i - 1].x;
+        const dy = pts[i].y - pts[i - 1].y;
+        arcLengths.push(arcLengths[i - 1] + Math.hypot(dx, dy));
+      }
+      const totalLength = arcLengths[arcLengths.length - 1];
+      
+      // 選択する点のセット
+      const selected = new Set(mandatory);
+      
+      // 必須点数が目標を超える場合は必須点のみを返す
+      if(mandatory.size >= targetPoints){
+        const indices = Array.from(mandatory).sort((a, b) => a - b);
+        return indices.map(i => ({...envelope[i]}));
+      }
+      
+      // 必須点を除いた追加点数
+      const additionalPoints = targetPoints - mandatory.size;
+      
+      // 弧長に基づいて均等な間隔で点を選択
+      const step = totalLength / (additionalPoints + 1);
+      
+      for(let j = 1; j <= additionalPoints; j++){
+        const targetArc = j * step;
+        
+        // targetArcに最も近い点を探す（必須点でないもの）
+        let bestIdx = -1;
+        let bestDiff = Infinity;
+        
+        for(let i = 1; i < pts.length - 1; i++){
+          if(mandatory.has(i)) continue; // 必須点はスキップ
+          
+          const diff = Math.abs(arcLengths[i] - targetArc);
+          if(diff < bestDiff){
+            bestDiff = diff;
+            bestIdx = i;
+          }
+        }
+        
+        if(bestIdx >= 0){
+          selected.add(bestIdx);
+        }
+      }
+      
+      const indices = Array.from(selected).sort((a, b) => a - b);
+      return indices.map(i => ({...envelope[i]}));
+      
+    }catch(err){
+      console.warn('thinEnvelopeUniform エラー', err);
+      return envelope;
+    }
+  }
+  
   // 包絡線間引き（Ramer-Douglas-Peucker 風）: 重要点保持しつつ 40～50 点程度へ縮約
   function thinEnvelope(envelope, minPoints, maxPoints, mandatoryGammas){
     try{
