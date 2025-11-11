@@ -1331,6 +1331,9 @@
       const step = totalLength / (targetPoints - 1);
       const selectedSet = new Set();
       
+      // デバッグ用
+      console.log(`[thinEnvelope] 元の点数: ${pts.length}, 目標点数: ${targetPoints}, 必須点数: ${mandatory.size}`);
+      
       // Step 1: 均等配置による点の選択（必須点は考慮せず純粋に均等）
       for(let j = 0; j < targetPoints; j++){
         const targetArc = j * step;
@@ -1351,6 +1354,8 @@
           selectedSet.add(bestIdx);
         }
       }
+      
+      console.log(`[thinEnvelope] Step1後の選択点数: ${selectedSet.size}`);
       
       // Step 2: 選択された点の中で、必須点に最も近い点を必須点に置き換え
       for(const mandatoryIdx of mandatory){
@@ -1375,8 +1380,11 @@
         }
       }
       
+      console.log(`[thinEnvelope] Step2後の選択点数: ${selectedSet.size}`);
+      
       // インデックスでソートして返す
       const selected = Array.from(selectedSet).sort((a, b) => a - b);
+      console.log(`[thinEnvelope] 最終結果点数: ${selected.length}, 先頭10点のインデックス: [${selected.slice(0, 10).join(', ')}]`);
       return selected.map(i => ({...envelope[i]}));
       
     }catch(err){
