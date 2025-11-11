@@ -1185,8 +1185,28 @@
       // Calculate characteristic points using full envelope (精度優先)
       analysisResults = calculateJTCCMMetrics(fullEnvelope, delta_u_max, alpha);
 
-      // 間引き処理は廃止: すべての包絡線点をそのまま使用
-      envelopeData = fullEnvelope;
+      // 100点を超える場合に間引き処理（重要点を保持しつつ全体的に満遍なく）
+      let displayEnvelope = fullEnvelope;
+      if(fullEnvelope.length > 100){
+        const mandatoryGammas = [];
+        // 重要点: δy, δu を必ず保持
+        if(Number.isFinite(analysisResults.delta_y)) mandatoryGammas.push(analysisResults.delta_y);
+        if(Number.isFinite(analysisResults.delta_u)) mandatoryGammas.push(analysisResults.delta_u);
+        // Pmax位置も保持
+        if(Number.isFinite(analysisResults.Pmax_gamma)) mandatoryGammas.push(analysisResults.Pmax_gamma);
+        // 原データからループ（反転点）を検出し、各ループ最大荷重点のγを保持
+        try{
+          const loopGammas = detectLoopPeakGammas(rawData, side);
+          if(Array.isArray(loopGammas) && loopGammas.length){
+            loopGammas.forEach(g => { if(Number.isFinite(g)) mandatoryGammas.push(g); });
+          }
+        }catch(err){ console.warn('ループピーク検出エラー', err); }
+        // 目標点数を80〜100点に設定
+        displayEnvelope = thinEnvelope(fullEnvelope, 80, 100, mandatoryGammas);
+        console.info('[間引き] 包絡線点を '+fullEnvelope.length+' 点から '+displayEnvelope.length+' 点に間引き（重要点保持）');
+      }
+
+      envelopeData = displayEnvelope;
   // 初期生成時点では未編集なので記録はしない
 
       // Render results
