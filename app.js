@@ -38,6 +38,8 @@
   const envelope_side = document.getElementById('envelope_side');
   const specimen_name = document.getElementById('specimen_name');
   const show_annotations = document.getElementById('show_annotations');
+  const envelope_thinning_rate = document.getElementById('envelope_thinning_rate');
+  const thinning_rate_value = document.getElementById('thinning_rate_value');
   // 手動解析ボタンは廃止
   const processButton = null;
   const downloadExcelButton = document.getElementById('downloadExcelButton');
@@ -587,6 +589,26 @@
     show_annotations.addEventListener('change', () => {
       if(envelopeData && analysisResults && Object.keys(analysisResults).length){
         renderPlot(envelopeData, analysisResults);
+      }
+    });
+  }
+  // 間引き率スライダーのイベントリスナー
+  if(envelope_thinning_rate && thinning_rate_value){
+    const updateThinningLabel = () => {
+      const rate = parseInt(envelope_thinning_rate.value);
+      let label = '';
+      if(rate <= 10) label = '低（間引き無し）';
+      else if(rate <= 40) label = '低〜中';
+      else if(rate <= 60) label = '中（デフォルト）';
+      else if(rate <= 80) label = '中〜高';
+      else label = '高（最大間引き）';
+      thinning_rate_value.textContent = label;
+    };
+    updateThinningLabel();
+    envelope_thinning_rate.addEventListener('input', () => {
+      updateThinningLabel();
+      if(rawData && rawData.length>=3){
+        scheduleAutoRun(300); // 少し長めの待ち時間で再解析
       }
     });
   }
@@ -1185,9 +1207,16 @@
       // Calculate characteristic points using full envelope (精度優先)
       analysisResults = calculateJTCCMMetrics(fullEnvelope, delta_u_max, alpha);
 
-      // 100点を超える場合に均等間引き（重要点は保持）
+      // 間引き率に応じた処理（スライダーの値: 0=間引き無し, 50=デフォルト, 100=最大間引き）
       let displayEnvelope = fullEnvelope;
-      if(fullEnvelope.length > 100){
+      const thinningRate = envelope_thinning_rate ? parseInt(envelope_thinning_rate.value) : 50;
+      
+      // 間引き率が0（低）の場合は間引き無し
+      if(thinningRate <= 10){
+        displayEnvelope = fullEnvelope;
+      }
+      // 100点を超える場合に間引きを実行
+      else if(fullEnvelope.length > 100){
         const mandatoryGammas = [];
         if(Number.isFinite(analysisResults.delta_y)) mandatoryGammas.push(analysisResults.delta_y);
         if(Number.isFinite(analysisResults.delta_u)) mandatoryGammas.push(analysisResults.delta_u);
@@ -1198,9 +1227,23 @@
             loopGammas.forEach(g => { if(Number.isFinite(g)) mandatoryGammas.push(g); });
           }
         }catch(err){ console.warn('ループピーク検出エラー', err); }
-        // 目標点数を80点に設定（60〜100点の範囲で調整可能）
-        displayEnvelope = thinEnvelopeUniform(fullEnvelope, 80, mandatoryGammas);
-        console.info('[間引き] 包絡線点を '+fullEnvelope.length+' 点から '+displayEnvelope.length+' 点に均等間引き（重要点保持）');
+        
+        // 間引き率に応じた目標点数を計算
+        // rate 0-10: 間引き無し
+        // rate 11-50: 100点から80点へ線形減少
+        // rate 51-100: 80点から40点へ線形減少
+        let targetPoints;
+        if(thinningRate <= 50){
+          // 低〜中: 100点 → 80点
+          targetPoints = Math.round(100 - (thinningRate - 10) * (20 / 40));
+        } else {
+          // 中〜高: 80点 → 40点
+          targetPoints = Math.round(80 - (thinningRate - 50) * (40 / 50));
+        }
+        targetPoints = Math.max(40, Math.min(100, targetPoints)); // 40〜100点の範囲に制限
+        
+        displayEnvelope = thinEnvelopeUniform(fullEnvelope, targetPoints, mandatoryGammas);
+        console.info('[間引き] 包絡線点を '+fullEnvelope.length+' 点から '+displayEnvelope.length+' 点に間引き（間引き率:'+thinningRate+'%, 目標:'+targetPoints+'点）');
       }
 
       envelopeData = displayEnvelope;

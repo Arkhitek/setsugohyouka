@@ -139,6 +139,18 @@
       </select>
     </div>
 
+    <div class="control-group">
+      <label for="envelope_thinning_rate">包絡線点の間引き率</label>
+      <input type="range" id="envelope_thinning_rate" min="0" max="100" value="50" step="5" 
+             style="width:100%; margin-top:8px;" />
+      <div style="display:flex; justify-content:space-between; font-size:0.85em; color:#7f8c8d; margin-top:4px;">
+        <span>低（間引き無し）</span>
+        <span id="thinning_rate_value">中（デフォルト）</span>
+        <span>高（最大間引き）</span>
+      </div>
+      <small>100点超の包絡線を表示・編集用に間引きます。重要点（Pmax, δy, δu等）は保持されます。</small>
+    </div>
+
   <!-- 自動解析に移行のため手動実行ボタンを削除 -->
     <div class="row">
       <div class="control-group">
