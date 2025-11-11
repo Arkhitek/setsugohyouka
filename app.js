@@ -1319,22 +1319,7 @@
         });
       }
       
-      // 局所ピークは厳しく制限：全体の上位数点のみ
-      const localPeaks = [];
-      for(let i = 1; i < pts.length - 1; i++){
-        const y0 = Math.abs(pts[i - 1].y);
-        const y1 = Math.abs(pts[i].y);
-        const y2 = Math.abs(pts[i + 1].y);
-        if(y1 >= y0 && y1 >= y2 && !mandatory.has(i)){
-          localPeaks.push({idx: i, load: y1});
-        }
-      }
-      // 荷重の大きい順にソートして上位3点のみ追加
-      localPeaks.sort((a, b) => b.load - a.load);
-      const topPeaks = Math.min(3, localPeaks.length);
-      for(let i = 0; i < topPeaks; i++){
-        mandatory.add(localPeaks[i].idx);
-      }
+      // 局所ピークは不要（均等配置で十分カバーされる）
       
       // 必須点数が目標を超える場合
       if(mandatory.size >= targetPoints){
