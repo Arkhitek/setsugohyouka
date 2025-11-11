@@ -1383,12 +1383,9 @@
           }
         }
         
-        // 必須点が十分近ければ（step の 50% 以内）、置き換え
-        if(closestSelected >= 0 && closestDist < step * 0.5){
+        // 最も近い選択点を必須点に置き換え（距離に関わらず）
+        if(closestSelected >= 0){
           selectedSet.delete(closestSelected);
-          selectedSet.add(mandatoryIdx);
-        } else {
-          // 遠い場合は追加（念のため）
           selectedSet.add(mandatoryIdx);
         }
       }
