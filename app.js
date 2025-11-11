@@ -1185,25 +1185,8 @@
       // Calculate characteristic points using full envelope (精度優先)
       analysisResults = calculateJTCCMMetrics(fullEnvelope, delta_u_max, alpha);
 
-      // After metrics, thin for display preserving δy, δu, loop peaks
-      let displayEnvelope = fullEnvelope;
-      if(fullEnvelope.length > 50){
-        const mandatoryGammas = [];
-        if(Number.isFinite(analysisResults.delta_y)) mandatoryGammas.push(analysisResults.delta_y);
-        if(Number.isFinite(analysisResults.delta_u)) mandatoryGammas.push(analysisResults.delta_u);
-        // 原データからループ（反転点）を検出し、各ループ最大荷重点のγを保持
-        try{
-          const loopGammas = detectLoopPeakGammas(rawData, side);
-          if(Array.isArray(loopGammas) && loopGammas.length){
-            loopGammas.forEach(g => { if(Number.isFinite(g)) mandatoryGammas.push(g); });
-          }
-        }catch(err){ console.warn('ループピーク検出エラー', err); }
-        displayEnvelope = thinEnvelope(fullEnvelope, 40, 50, mandatoryGammas);
-        console.info('[thinEnvelope] 包絡線点を '+displayEnvelope.length+' 点に間引き（δy/δu/ループ最大荷重を保持）');
-      }
-
-  // Set envelopeData to display/thinned version for editing
-  envelopeData = displayEnvelope;
+      // 間引き処理は廃止: すべての包絡線点をそのまま使用
+      envelopeData = fullEnvelope;
   // 初期生成時点では未編集なので記録はしない
 
       // Render results
