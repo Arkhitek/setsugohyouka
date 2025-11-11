@@ -1321,26 +1321,21 @@
       
       // 局所ピークは不要（均等配置で十分カバーされる）
       
-      console.log(`[thinEnvelope] 必須点の内訳: 先頭/終端=2, Pmax=1, mandatoryGammas=${mandatoryGammas ? mandatoryGammas.length : 0}`);
+      console.log(`[thinEnvelope] 必須点の内訳: mandatory.size=${mandatory.size}, mandatoryGammas=${mandatoryGammas ? mandatoryGammas.length : 0}`);
       
-      // 必須点数が目標を超える場合は、必須点の中から重要なものを選択
-      if(mandatory.size >= targetPoints){
-        console.warn(`[thinEnvelope] 必須点数(${mandatory.size})が目標点数(${targetPoints})以上のため、必須点を間引きます`);
+      // 必須点が多すぎる場合は、最重要点のみを新しい必須点セットとする
+      let coreMandatory = new Set();
+      if(mandatory.size >= targetPoints * 0.5){
+        console.warn(`[thinEnvelope] 必須点数(${mandatory.size})が多すぎるため、最重要点のみに制限します`);
         
-        // 必須点を重要度順に選択
-        const mandatoryList = Array.from(mandatory);
-        const priorityPoints = [];
+        // 先頭と終端
+        coreMandatory.add(0);
+        coreMandatory.add(pts.length - 1);
         
-        // 優先度1: 先頭と終端は必須
-        priorityPoints.push(0);
-        priorityPoints.push(pts.length - 1);
+        // Pmax
+        coreMandatory.add(idxPmax);
         
-        // 優先度2: Pmax
-        if(!priorityPoints.includes(idxPmax)){
-          priorityPoints.push(idxPmax);
-        }
-        
-        // 優先度3: δy, δu（mandatoryGammas の最初の2つ）
+        // δy, δu（mandatoryGammas の最初の2つのみ）
         if(Array.isArray(mandatoryGammas)){
           for(let i = 0; i < Math.min(2, mandatoryGammas.length); i++){
             const gTarget = mandatoryGammas[i];
@@ -1354,30 +1349,18 @@
                 bestIdx = j;
               }
             }
-            if(bestIdx >= 0 && !priorityPoints.includes(bestIdx)){
-              priorityPoints.push(bestIdx);
-            }
+            if(bestIdx >= 0) coreMandatory.add(bestIdx);
           }
         }
         
-        // 優先度4: 残りの必須点から弧長に基づいて均等に選択
-        const remainingSlots = targetPoints - priorityPoints.length;
-        if(remainingSlots > 0){
-          const remainingMandatory = mandatoryList.filter(idx => !priorityPoints.includes(idx));
-          if(remainingMandatory.length > 0){
-            // 弧長でソートして均等に選択
-            remainingMandatory.sort((a, b) => arcLengths[a] - arcLengths[b]);
-            const step = remainingMandatory.length / remainingSlots;
-            for(let i = 0; i < remainingSlots && i < remainingMandatory.length; i++){
-              const idx = Math.round(i * step);
-              if(idx < remainingMandatory.length){
-                priorityPoints.push(remainingMandatory[idx]);
-              }
-            }
-          }
-        }
-        
-        const indices = priorityPoints.sort((a, b) => a - b);
+        console.log(`[thinEnvelope] 必須点を ${mandatory.size} 点から ${coreMandatory.size} 点に削減`);
+        mandatory = coreMandatory;
+      }
+      
+      // 必須点数が目標を超える場合（削減後でも）
+      if(mandatory.size >= targetPoints){
+        console.warn(`[thinEnvelope] 必須点数(${mandatory.size})が目標点数(${targetPoints})以上のため、必須点のみ返します`);
+        const indices = Array.from(mandatory).sort((a, b) => a - b);
         return indices.map(i => ({...envelope[i]}));
       }
       
