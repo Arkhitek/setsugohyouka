@@ -1224,21 +1224,30 @@
 
 
   // === Envelope Generation (Section II.3) ===
-  // 均等間引き: 重要点を保持しつつ、包絡線全体で点の間隔が均等になるように間引く
+  // 均等間引き: 重要点を最小限保持し、包絡線全体で点の間隔が均等になるように間引く
   function thinEnvelopeUniform(envelope, targetPoints, mandatoryGammas){
     try{
       if(!Array.isArray(envelope) || envelope.length <= targetPoints) return envelope.map(pt=>({...pt}));
       
       const pts = envelope.map(pt => ({x: pt.gamma, y: pt.Load}));
       
-      // 重要点を特定（必ず保持）
+      // 弧長（累積距離）を先に計算
+      const arcLengths = [0];
+      for(let i = 1; i < pts.length; i++){
+        const dx = pts[i].x - pts[i - 1].x;
+        const dy = pts[i].y - pts[i - 1].y;
+        arcLengths.push(arcLengths[i - 1] + Math.hypot(dx, dy));
+      }
+      const totalLength = arcLengths[arcLengths.length - 1];
+      
+      // 最小限の重要点のみ特定
       const mandatory = new Set();
       
       // 先頭と最終点は必須
       mandatory.add(0);
       mandatory.add(pts.length - 1);
       
-      // 最大荷重点（Pmax）
+      // 最大荷重点（Pmax）は必ず保持
       let idxPmax = 0;
       let maxAbs = -Infinity;
       for(let i = 0; i < pts.length; i++){
@@ -1250,7 +1259,7 @@
       }
       mandatory.add(idxPmax);
       
-      // 指定されたγ値に最も近い点（δy, δu等）
+      // 指定されたγ値に最も近い点（δy, δu等）も必須
       if(Array.isArray(mandatoryGammas)){
         mandatoryGammas.forEach(gTarget => {
           if(!Number.isFinite(gTarget)) return;
@@ -1267,49 +1276,52 @@
         });
       }
       
-      // 局所ピーク（ループの最大荷重点）
+      // 局所ピークは厳しく制限：全体の上位数点のみ
+      const localPeaks = [];
       for(let i = 1; i < pts.length - 1; i++){
         const y0 = Math.abs(pts[i - 1].y);
         const y1 = Math.abs(pts[i].y);
         const y2 = Math.abs(pts[i + 1].y);
-        if(y1 >= y0 && y1 >= y2){
-          mandatory.add(i);
+        if(y1 >= y0 && y1 >= y2 && !mandatory.has(i)){
+          localPeaks.push({idx: i, load: y1});
         }
       }
-      
-      // 弧長（累積距離）を計算
-      const arcLengths = [0];
-      for(let i = 1; i < pts.length; i++){
-        const dx = pts[i].x - pts[i - 1].x;
-        const dy = pts[i].y - pts[i - 1].y;
-        arcLengths.push(arcLengths[i - 1] + Math.hypot(dx, dy));
+      // 荷重の大きい順にソートして上位3点のみ追加
+      localPeaks.sort((a, b) => b.load - a.load);
+      const topPeaks = Math.min(3, localPeaks.length);
+      for(let i = 0; i < topPeaks; i++){
+        mandatory.add(localPeaks[i].idx);
       }
-      const totalLength = arcLengths[arcLengths.length - 1];
       
-      // 選択する点のセット
-      const selected = new Set(mandatory);
-      
-      // 必須点数が目標を超える場合は必須点のみを返す
+      // 必須点数が目標を超える場合
       if(mandatory.size >= targetPoints){
         const indices = Array.from(mandatory).sort((a, b) => a - b);
         return indices.map(i => ({...envelope[i]}));
       }
       
-      // 必須点を除いた追加点数
-      const additionalPoints = targetPoints - mandatory.size;
+      // 全体を均等分割して点を配置（必須点を含む）
+      const step = totalLength / (targetPoints - 1);
+      const selected = new Set();
       
-      // 弧長に基づいて均等な間隔で点を選択
-      const step = totalLength / (additionalPoints + 1);
-      
-      for(let j = 1; j <= additionalPoints; j++){
+      for(let j = 0; j < targetPoints; j++){
         const targetArc = j * step;
         
-        // targetArcに最も近い点を探す（必須点でないもの）
+        // targetArcに最も近い点を探す
         let bestIdx = -1;
         let bestDiff = Infinity;
         
-        for(let i = 1; i < pts.length - 1; i++){
-          if(mandatory.has(i)) continue; // 必須点はスキップ
+        for(let i = 0; i < pts.length; i++){
+          // 既に選択された点から一定距離離れているか確認（重複回避）
+          let tooClose = false;
+          for(const selectedIdx of selected){
+            const arcDist = Math.abs(arcLengths[i] - arcLengths[selectedIdx]);
+            if(arcDist < step * 0.3){ // 30%未満の距離なら近すぎる
+              tooClose = true;
+              break;
+            }
+          }
+          
+          if(tooClose && !mandatory.has(i)) continue; // 必須点でなく近すぎる場合はスキップ
           
           const diff = Math.abs(arcLengths[i] - targetArc);
           if(diff < bestDiff){
@@ -1321,6 +1333,11 @@
         if(bestIdx >= 0){
           selected.add(bestIdx);
         }
+      }
+      
+      // 必須点が選択されていない場合は強制追加
+      for(const idx of mandatory){
+        selected.add(idx);
       }
       
       const indices = Array.from(selected).sort((a, b) => a - b);
