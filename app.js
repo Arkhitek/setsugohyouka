@@ -1342,50 +1342,62 @@
         return indices.map(i => ({...envelope[i]}));
       }
       
-      // 全体を均等分割して点を配置（必須点を含む）
+      // 弧長ベースで均等分割して点を配置
       const step = totalLength / (targetPoints - 1);
-      const selected = new Set(mandatory); // 必須点を最初に確定
+      const selected = [];
+      const usedIndices = new Set();
       
-      // 均等配置による追加点を選択
       for(let j = 0; j < targetPoints; j++){
         const targetArc = j * step;
         
-        // targetArcに最も近い点を探す（既に選択済みでない点）
-        let bestIdx = -1;
-        let bestDiff = Infinity;
+        // まず、targetArc近傍に必須点があるか確認
+        let mandatoryNearby = -1;
+        let mandatoryDist = Infinity;
+        for(const idx of mandatory){
+          if(usedIndices.has(idx)) continue;
+          const dist = Math.abs(arcLengths[idx] - targetArc);
+          if(dist < step * 0.4 && dist < mandatoryDist){ // step の 40% 以内なら近傍
+            mandatoryDist = dist;
+            mandatoryNearby = idx;
+          }
+        }
         
-        for(let i = 0; i < pts.length; i++){
-          if(selected.has(i)) continue; // 既に選択済みならスキップ
+        if(mandatoryNearby >= 0){
+          // 必須点を優先採用
+          selected.push(mandatoryNearby);
+          usedIndices.add(mandatoryNearby);
+        } else {
+          // targetArcに最も近い未使用点を選択
+          let bestIdx = -1;
+          let bestDiff = Infinity;
           
-          // 既存の選択点から近すぎないか確認（重複防止）
-          let tooClose = false;
-          for(const selectedIdx of selected){
-            const arcDist = Math.abs(arcLengths[i] - arcLengths[selectedIdx]);
-            if(arcDist < step * 0.2){ // 20%未満の距離なら近すぎる
-              tooClose = true;
-              break;
+          for(let i = 0; i < pts.length; i++){
+            if(usedIndices.has(i)) continue;
+            
+            const diff = Math.abs(arcLengths[i] - targetArc);
+            if(diff < bestDiff){
+              bestDiff = diff;
+              bestIdx = i;
             }
           }
           
-          if(tooClose) continue;
-          
-          const diff = Math.abs(arcLengths[i] - targetArc);
-          if(diff < bestDiff){
-            bestDiff = diff;
-            bestIdx = i;
+          if(bestIdx >= 0){
+            selected.push(bestIdx);
+            usedIndices.add(bestIdx);
           }
         }
-        
-        if(bestIdx >= 0){
-          selected.add(bestIdx);
-        }
-        
-        // 目標点数に達したら終了
-        if(selected.size >= targetPoints) break;
       }
       
-      const indices = Array.from(selected).sort((a, b) => a - b);
-      return indices.map(i => ({...envelope[i]}));
+      // 未採用の必須点があれば追加（念のため）
+      for(const idx of mandatory){
+        if(!usedIndices.has(idx)){
+          selected.push(idx);
+        }
+      }
+      
+      // インデックスでソートして返す
+      selected.sort((a, b) => a - b);
+      return selected.map(i => ({...envelope[i]}));
       
     }catch(err){
       console.warn('thinEnvelopeUniform エラー', err);
