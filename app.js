@@ -1344,27 +1344,30 @@
       
       // 全体を均等分割して点を配置（必須点を含む）
       const step = totalLength / (targetPoints - 1);
-      const selected = new Set();
+      const selected = new Set(mandatory); // 必須点を最初に確定
       
+      // 均等配置による追加点を選択
       for(let j = 0; j < targetPoints; j++){
         const targetArc = j * step;
         
-        // targetArcに最も近い点を探す
+        // targetArcに最も近い点を探す（既に選択済みでない点）
         let bestIdx = -1;
         let bestDiff = Infinity;
         
         for(let i = 0; i < pts.length; i++){
-          // 既に選択された点から一定距離離れているか確認（重複回避）
+          if(selected.has(i)) continue; // 既に選択済みならスキップ
+          
+          // 既存の選択点から近すぎないか確認（重複防止）
           let tooClose = false;
           for(const selectedIdx of selected){
             const arcDist = Math.abs(arcLengths[i] - arcLengths[selectedIdx]);
-            if(arcDist < step * 0.3){ // 30%未満の距離なら近すぎる
+            if(arcDist < step * 0.2){ // 20%未満の距離なら近すぎる
               tooClose = true;
               break;
             }
           }
           
-          if(tooClose && !mandatory.has(i)) continue; // 必須点でなく近すぎる場合はスキップ
+          if(tooClose) continue;
           
           const diff = Math.abs(arcLengths[i] - targetArc);
           if(diff < bestDiff){
@@ -1376,11 +1379,9 @@
         if(bestIdx >= 0){
           selected.add(bestIdx);
         }
-      }
-      
-      // 必須点が選択されていない場合は強制追加
-      for(const idx of mandatory){
-        selected.add(idx);
+        
+        // 目標点数に達したら終了
+        if(selected.size >= targetPoints) break;
       }
       
       const indices = Array.from(selected).sort((a, b) => a - b);
