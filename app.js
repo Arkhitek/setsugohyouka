@@ -1231,16 +1231,16 @@
         // 間引き率に応じた目標点数を計算
         // rate 0-10: 間引き無し
         // rate 11-50: 100点から80点へ線形減少
-        // rate 51-100: 80点から20点へ線形減少（高で大幅間引き）
+        // rate 51-100: 80点から10点へ線形減少（高で大幅間引き）
         let targetPoints;
         if(thinningRate <= 50){
           // 低〜中: 100点 → 80点
           targetPoints = Math.round(100 - (thinningRate - 10) * (20 / 40));
         } else {
-          // 中〜高: 80点 → 20点（最大で20点まで間引き）
-          targetPoints = Math.round(80 - (thinningRate - 50) * (60 / 50));
+          // 中〜高: 80点 → 10点（最大で10点まで間引き）
+          targetPoints = Math.round(80 - (thinningRate - 50) * (70 / 50));
         }
-        targetPoints = Math.max(20, Math.min(100, targetPoints)); // 20〜100点の範囲に制限
+        targetPoints = Math.max(10, Math.min(100, targetPoints)); // 10〜100点の範囲に制限
         
         displayEnvelope = thinEnvelopeUniform(fullEnvelope, targetPoints, mandatoryGammas);
         console.info('[間引き] 包絡線点を '+fullEnvelope.length+' 点から '+displayEnvelope.length+' 点に間引き（間引き率:'+thinningRate+'%, 目標:'+targetPoints+'点）');
