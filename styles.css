@@ -35,7 +35,18 @@ h1{margin-top:0;color:#2c3e50}
 .guide-section strong{color:#2c3e50}
 
 #controls h2{font-size:1.2em;margin-top:0;border-bottom:2px solid #3498db;padding-bottom:5px}
-#plot{min-height:600px}
+#plot{
+  min-height:600px;
+  resize: both;
+  overflow: auto;
+  position: relative;
+  border: 2px solid #e0e0e0;
+  min-width: 400px;
+  max-width: 100%;
+}
+#plot:hover{
+  border-color: #3498db;
+}
 .control-group{margin-bottom:15px}
 .control-group label{display:block;font-weight:700;margin-bottom:5px;color:#34495e}
 .control-group small{display:block;color:#7f8c8d;font-size:0.85em;margin-top:3px}

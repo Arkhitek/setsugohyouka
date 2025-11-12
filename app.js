@@ -3767,4 +3767,20 @@
     // ログ機能は無効化（コンソールのみに出力）
     console.log('[LOG]', message);
   }
+
+  // === Plot Container Resize Observer ===
+  // グラフコンテナのリサイズを監視してPlotlyのサイズを更新
+  if(plotDiv && window.ResizeObserver){
+    const resizeObserver = new ResizeObserver(entries => {
+      for(let entry of entries){
+        if(entry.target === plotDiv && window.Plotly){
+          // リサイズ後にPlotlyのサイズを更新
+          requestAnimationFrame(() => {
+            Plotly.Plots.resize(plotDiv);
+          });
+        }
+      }
+    });
+    resizeObserver.observe(plotDiv);
+  }
 })();
