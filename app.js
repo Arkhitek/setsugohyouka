@@ -99,8 +99,9 @@
   const envelope_side = document.getElementById('envelope_side');
   const specimen_name = document.getElementById('specimen_name');
   const show_annotations = document.getElementById('show_annotations');
-  const envelope_thinning_rate = document.getElementById('envelope_thinning_rate');
-  const thinning_rate_value = document.getElementById('thinning_rate_value');
+  // 間引き関連UIは削除済み
+  const envelope_thinning_rate = null;
+  const thinning_rate_value = null;
   // 手動解析ボタンは廃止
   const processButton = null;
   const downloadExcelButton = document.getElementById('downloadExcelButton');
@@ -124,12 +125,9 @@
   const importExcelButton = document.getElementById('importExcelButton');
   const importExcelInput = document.getElementById('importExcelInput');
   // 表示間引き（包絡線点数）
-  const thin_target_points = document.getElementById('thin_target_points');
-  const applyThinningButton = document.getElementById('applyThinningButton');
-
-  // UI 値の直前値を保持（編集済み状態でのリバート用）
-  let lastThinningRate = envelope_thinning_rate ? envelope_thinning_rate.value : '50';
-  let lastThinTarget = thin_target_points ? thin_target_points.value : '50';
+  // 間引き関連UIは削除済み
+  const thin_target_points = null;
+  const applyThinningButton = null;
 
   // ドラッグ移動モード（ボタンONの間のみ点ドラッグ可能。パン/ズームを抑止）
   let dragMoveEnabled = false;
@@ -661,52 +659,7 @@
     });
   }
   // 間引き率スライダーのイベントリスナー
-  if(envelope_thinning_rate && thinning_rate_value){
-    const updateThinningLabel = () => {
-      const rate = parseInt(envelope_thinning_rate.value);
-      let label = '';
-      if(rate <= 10) label = '低（間引き無し）';
-      else if(rate <= 40) label = '低〜中';
-      else if(rate <= 60) label = '中（デフォルト）';
-      else if(rate <= 80) label = '中〜高';
-      else label = '高（最大間引き）';
-      thinning_rate_value.textContent = label;
-    };
-    updateThinningLabel();
-    envelope_thinning_rate.addEventListener('input', () => {
-      // 編集済みまたはインポート済み（編集フラグ）の場合は間引き変更を禁止
-      const side = getCurrentSide();
-      if(editedDirtyBySide[side]){
-        // UIを元に戻す
-        try{ envelope_thinning_rate.value = lastThinningRate; }catch(_){ }
-        updateThinningLabel();
-        alert('この包絡線は手動編集またはインポート済みのため、スライダーによる間引き変更はできません。');
-        appendLog('間引き変更をブロックしました（編集済み/インポート済み）');
-        return;
-      }
-
-      updateThinningLabel();
-      // 通常は rawData があるなら再解析をスケジュール
-      if(rawData && rawData.length>=3){
-        lastThinningRate = envelope_thinning_rate.value;
-        scheduleAutoRun(300); // 少し長めの待ち時間で再解析
-        return;
-      }
-      // rawData が無い場合（Excelインポートで包絡線のみ取り込んだ等）は
-      // originalEnvelopeBySide キャッシュがあればそれを使って表示用間引きを即時再適用する
-      try{
-        const full = originalEnvelopeBySide[side];
-        if(Array.isArray(full) && full.length > 2){
-          const metrics = calculateJTCCMMetrics(full, parseFloat(max_ultimate_deformation.value), parseFloat(alpha_factor.value));
-          envelopeData = reapplyDisplayThinning(full, side, metrics);
-          renderPlot(envelopeData, metrics);
-          renderResults(metrics);
-          lastThinningRate = envelope_thinning_rate.value;
-          appendLog('表示間引きを再適用（キャッシュ包絡線）: ' + envelopeData.length + ' 点');
-        }
-      }catch(err){ console.warn('thinning slider handler error', err); }
-    });
-  }
+  // 間引きUIは削除済みのため、ここは不活性
   if(downloadExcelButton) downloadExcelButton.addEventListener('click', downloadExcel);
   if(generatePdfButton) generatePdfButton.addEventListener('click', generatePdfReport);
   clearDataButton.addEventListener('click', clearInputData);
@@ -737,35 +690,7 @@
       }catch(e){ console.warn('apply thinning error', e); }
     });
   }
-  if(thin_target_points){
-    thin_target_points.addEventListener('change', () => {
-      // 編集済み/インポート済みの場合は終了（警告）
-      const side = getCurrentSide();
-      if(editedDirtyBySide[side]){
-        try{ thin_target_points.value = lastThinTarget; }catch(_){ }
-        alert('この包絡線は手動編集またはインポート済みのため、目標点数の変更はできません。');
-        appendLog('目標点数変更をブロックしました（編集済み/インポート済み）');
-        return;
-      }
-
-      // 値変更で即適用（ユーザーの意図が明確なため）
-      try{
-        // 可能であればフル包絡線から再適用して点数の増加にも対応
-        const full = originalEnvelopeBySide[side];
-        if(Array.isArray(full) && full.length > 2){
-          const metrics = calculateJTCCMMetrics(full, parseFloat(max_ultimate_deformation.value), parseFloat(alpha_factor.value));
-          envelopeData = reapplyDisplayThinning(full, side, metrics);
-          renderPlot(envelopeData, metrics);
-          renderResults(metrics);
-          lastThinTarget = thin_target_points.value;
-          appendLog('表示間引き(目標)を再適用（キャッシュ包絡線）: ' + envelopeData.length + ' 点');
-        } else {
-          applyEnvelopeThinning();
-          lastThinTarget = thin_target_points.value;
-        }
-      }catch(e){ console.warn('apply thinning error', e); }
-    });
-  }
+  // 間引きUIは削除済みのためイベント無し
 
 
   function clearInputData(){

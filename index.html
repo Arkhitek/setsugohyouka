@@ -185,22 +185,9 @@
     </div>
   </div>
 
-  <!-- 表示間引き設定 -->
-  <div class="card" style="padding:15px;">
-    <h2 style="font-size:1.1em; margin-top:0; border-bottom:2px solid #3498db; padding-bottom:4px;">表示設定（包絡線間引き）</h2>
-    <div class="row">
-      <div class="control-group">
-        <label for="thin_target_points">包絡線表示点数 (推奨 40-80)</label>
-        <input type="number" id="thin_target_points" value="50" min="10" max="300" step="1" />
-        <small>インポート後や編集後に、指定点数へ再間引きします。点数が現在より多い場合は何もしません。</small>
-      </div>
-      <div class="control-group">
-        <label style="visibility:hidden">間引き適用</label>
-        <button type="button" id="applyThinningButton">間引きを適用</button>
-        <small>現在の包絡線を指定点数へ圧縮（δy/δu/ループ最大点を保持）</small>
-      </div>
-    </div>
-  </div>
+  <!-- 表示間引き設定（削除）
+    本機能は要件により無効化されました。将来的に復活する場合はこのブロックを戻してください。
+  -->
   
   <!-- ツールチップと数値調整ダイアログ -->
   <div id="pointTooltip" class="tooltip" style="display:none; position:absolute;"></div>
