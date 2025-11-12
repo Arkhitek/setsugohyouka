@@ -1260,6 +1260,47 @@
       const edited = editedEnvelopeBySide[side];
       if(Array.isArray(edited) && edited.length >= 2){
         envelopeData = edited.map(p => ({...p}));
+        // 再計算前に間引き UI の希望を適用（インポート後でも反映できるように）
+        const targetInputEl = document.getElementById('thin_target_points');
+        const sliderEl = typeof envelope_thinning_rate !== 'undefined' ? envelope_thinning_rate : null;
+        let working = envelopeData.map(p=>({...p}));
+        // 目標点数優先（元包絡線を再利用できる場合はそれを使う）
+        if(targetInputEl){
+          const target = parseInt(targetInputEl.value,10);
+          if(Number.isFinite(target) && target > 5 && working.length > target){
+            const mandatoryGammas = [];
+            if(Number.isFinite(analysisResults?.delta_y)) mandatoryGammas.push(analysisResults.delta_y);
+            if(Number.isFinite(analysisResults?.delta_u)) mandatoryGammas.push(analysisResults.delta_u);
+            try {
+              const loopGammas = detectLoopPeakGammas(rawData || [], side);
+              if(Array.isArray(loopGammas) && loopGammas.length){ loopGammas.forEach(g => { if(Number.isFinite(g)) mandatoryGammas.push(g); }); }
+            } catch(err){ console.warn('再間引き(編集キャッシュ): ループピーク検出失敗', err); }
+            working = sampleEnvelopeExact(working, target, mandatoryGammas);
+            console.info(`[re-thin edited] target=${target} -> ${working.length} 点`);
+          }
+        }
+        // スライダーも適用（追加でさらに減らす）
+        if(sliderEl){
+          const thinningRate = parseInt(sliderEl.value,10);
+          if(Number.isFinite(thinningRate) && thinningRate > 10 && working.length > 50){
+            const mandatoryGammas = [];
+            if(Number.isFinite(analysisResults?.delta_y)) mandatoryGammas.push(analysisResults.delta_y);
+            if(Number.isFinite(analysisResults?.delta_u)) mandatoryGammas.push(analysisResults.delta_u);
+            try {
+              const loopGammas = detectLoopPeakGammas(rawData || [], side);
+              if(Array.isArray(loopGammas) && loopGammas.length){ loopGammas.forEach(g => { if(Number.isFinite(g)) mandatoryGammas.push(g); }); }
+            } catch(err){ console.warn('再間引き(編集キャッシュ/slider): ループピーク検出失敗', err); }
+            let targetPoints;
+            if(thinningRate <= 50){
+              targetPoints = Math.round(100 - (thinningRate - 10) * (20 / 40));
+            } else {
+              targetPoints = Math.round(80 - (thinningRate - 50) * (70 / 50));
+            }
+            working = thinEnvelopeUniform(working, targetPoints, mandatoryGammas);
+            console.info(`[re-thin edited slider] rate=${thinningRate} target=${targetPoints} -> ${working.length} 点`);
+          }
+        }
+        envelopeData = working.map(p=>({...p}));
         analysisResults = calculateJTCCMMetrics(envelopeData, delta_u_max, alpha);
         renderPlot(envelopeData, analysisResults);
         renderResults(analysisResults);
