@@ -62,6 +62,9 @@
   const selectNextPointButton = document.getElementById('selectNextPoint');
   const importExcelButton = document.getElementById('importExcelButton');
   const importExcelInput = document.getElementById('importExcelInput');
+  // 表示間引き（包絡線点数）
+  const thin_target_points = document.getElementById('thin_target_points');
+  const applyThinningButton = document.getElementById('applyThinningButton');
 
   // ドラッグ移動モード（ボタンONの間のみ点ドラッグ可能。パン/ズームを抑止）
   let dragMoveEnabled = false;
@@ -626,6 +629,19 @@
   if(importExcelButton && importExcelInput){
     importExcelButton.addEventListener('click', () => importExcelInput.click());
     importExcelInput.addEventListener('change', handleImportExcelFile);
+  }
+
+  // 間引き（再サンプリング）適用
+  if(applyThinningButton){
+    applyThinningButton.addEventListener('click', () => {
+      try{ applyEnvelopeThinning(); }catch(e){ console.warn('apply thinning error', e); }
+    });
+  }
+  if(thin_target_points){
+    thin_target_points.addEventListener('change', () => {
+      // 値変更で即適用（ユーザーの意図が明確なため）
+      try{ applyEnvelopeThinning(); }catch(e){ console.warn('apply thinning error', e); }
+    });
   }
 
 
@@ -1578,6 +1594,42 @@
       const indices = Array.from(selected).sort((a,b)=>a-b);
       return indices.map(i=> ({...envelope[i]}));
     }catch(err){ console.warn('thinEnvelope エラー', err); return envelope; }
+  }
+
+  // 現在の包絡線を「表示点数目標」に合わせて再間引き（δy / δu / ループ最大点は保持）
+  function applyEnvelopeThinning(){
+    try{
+      if(!envelopeData || !Array.isArray(envelopeData) || envelopeData.length < 3) return;
+      const target = thin_target_points ? parseInt(thin_target_points.value, 10) : 50;
+      if(!Number.isFinite(target) || target <= 0) return;
+      // 目標より既に十分少ない場合は何もしない
+      if(envelopeData.length <= target){
+        appendLog('間引き対象外: 既に点数が目標以下です ('+envelopeData.length+' <= '+target+')');
+        return;
+      }
+      const minPts = Math.max(10, Math.min(target - 10, target));
+      const maxPts = Math.max(target, Math.min(target + 10, 300));
+
+      // 重要点（保持）: δy, δu, ループ最大荷重点
+      const mandatoryGammas = [];
+      try{
+        if(Number.isFinite(analysisResults?.delta_y)) mandatoryGammas.push(analysisResults.delta_y);
+        if(Number.isFinite(analysisResults?.delta_u)) mandatoryGammas.push(analysisResults.delta_u);
+      }catch(_){/* noop */}
+      try{
+        const side = getCurrentSide();
+        const loops = detectLoopPeakGammas(rawData || [], side);
+        if(Array.isArray(loops) && loops.length){ loops.forEach(g => { if(Number.isFinite(g)) mandatoryGammas.push(g); }); }
+      }catch(_){/* noop */}
+
+      const thinned = thinEnvelope(envelopeData, minPts, maxPts, mandatoryGammas);
+      if(!Array.isArray(thinned) || thinned.length < 2){ return; }
+      // 履歴保存・適用・再計算
+      pushHistory(envelopeData);
+      envelopeData = thinned.map(p=>({...p}));
+      recalculateFromEnvelope(envelopeData);
+      appendLog('包絡線の表示間引きを適用: '+envelopeData.length+' 点');
+    }catch(err){ console.warn('applyEnvelopeThinning failed', err); }
   }
 
   function generateEnvelope(data, side){

@@ -138,6 +138,10 @@ button.drag-green.active-bright{filter:brightness(1.25); box-shadow:0 0 0 2px rg
 	#results h3{margin-top:0}
 }
 
+/* 間引き設定カードの微調整 */
+#thin_target_points { font-family:monospace; }
+#applyThinningButton { margin-top:4px; }
+
 /* ================= Cursor State Overrides ================= */
 /* Plotly の pan モードが常に hand 系カーソルを出す問題への対策: 基本は矢印(default) */
 #plot .draglayer, #plot .plot-container .draglayer { cursor: default !important; }
