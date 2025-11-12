@@ -1189,20 +1189,19 @@
 
   // === Direct Input Processing ===
   function processDataDirect(){
-    try{
+    try {
       const alpha = parseFloat(alpha_factor.value);
       const side = envelope_side.value;
       const delta_u_max = parseFloat(max_ultimate_deformation.value);
-
       if(!isFinite(alpha) || !isFinite(delta_u_max) || delta_u_max <= 0){
         console.warn('入力値が不正です');
         return;
       }
 
-      // 既に編集済み包絡線が存在する場合はそれを優先（設定変更時に点情報を維持）
+      // 編集済み包絡線（手動調整 or インポート後ユーザ編集）がある場合はその点列を維持
       const edited = editedEnvelopeBySide[side];
-      if(Array.isArray(edited) && edited.length>=2){
-        envelopeData = edited.map(p=>({...p}));
+      if(Array.isArray(edited) && edited.length >= 2){
+        envelopeData = edited.map(p => ({...p}));
         analysisResults = calculateJTCCMMetrics(envelopeData, delta_u_max, alpha);
         renderPlot(envelopeData, analysisResults);
         renderResults(analysisResults);
@@ -1214,69 +1213,72 @@
         return;
       }
 
-      // Generate full envelope from direct input data (計算用フル包絡線)
+      // 生データからフル包絡線生成
       const fullEnvelope = generateEnvelope(rawData, side);
       if(fullEnvelope.length === 0){
-        console.warn('包絡線の生成に失敗しました');
+        console.warn('包絡線生成失敗');
         return;
       }
-      // Calculate characteristic points using full envelope (精度優先)
+      // 指標計算は常にフル包絡線を使用（精度優先）
       analysisResults = calculateJTCCMMetrics(fullEnvelope, delta_u_max, alpha);
 
-      // 間引き率に応じた処理（スライダーの値: 0=間引き無し, 50=デフォルト, 100=最大間引き）
       let displayEnvelope = fullEnvelope;
-      const thinningRate = envelope_thinning_rate ? parseInt(envelope_thinning_rate.value) : 50;
-      
-      // 間引き率が0（低）の場合は間引き無し
-      if(thinningRate <= 10){
-        displayEnvelope = fullEnvelope;
-      }
-      // 100点を超える場合に間引きを実行
-      else if(fullEnvelope.length > 100){
-        const mandatoryGammas = [];
-        if(Number.isFinite(analysisResults.delta_y)) mandatoryGammas.push(analysisResults.delta_y);
-        if(Number.isFinite(analysisResults.delta_u)) mandatoryGammas.push(analysisResults.delta_u);
-        // 原データからループ（反転点）を検出し、各ループ最大荷重点のγを保持
-        try{
-          const loopGammas = detectLoopPeakGammas(rawData, side);
-          if(Array.isArray(loopGammas) && loopGammas.length){
-            loopGammas.forEach(g => { if(Number.isFinite(g)) mandatoryGammas.push(g); });
-          }
-        }catch(err){ console.warn('ループピーク検出エラー', err); }
-        
-        // 間引き率に応じた目標点数を計算
-        // rate 0-10: 間引き無し
-        // rate 11-50: 100点から80点へ線形減少
-        // rate 51-100: 80点から10点へ線形減少（高で大幅間引き）
-        let targetPoints;
-        if(thinningRate <= 50){
-          // 低〜中: 100点 → 80点
-          targetPoints = Math.round(100 - (thinningRate - 10) * (20 / 40));
-        } else {
-          // 中〜高: 80点 → 10点（最大で10点まで間引き）
-          targetPoints = Math.round(80 - (thinningRate - 50) * (70 / 50));
+      const targetInputEl = document.getElementById('thin_target_points');
+      const sliderEl = typeof envelope_thinning_rate !== 'undefined' ? envelope_thinning_rate : null;
+
+      if(targetInputEl){
+        // 新UI: 目標表示点数
+        const target = parseInt(targetInputEl.value,10);
+        if(Number.isFinite(target) && target > 5 && fullEnvelope.length > target){
+          const mandatoryGammas = [];
+          if(Number.isFinite(analysisResults.delta_y)) mandatoryGammas.push(analysisResults.delta_y);
+            if(Number.isFinite(analysisResults.delta_u)) mandatoryGammas.push(analysisResults.delta_u);
+          try {
+            const loopGammas = detectLoopPeakGammas(rawData, side);
+            if(Array.isArray(loopGammas) && loopGammas.length){
+              loopGammas.forEach(g => { if(Number.isFinite(g)) mandatoryGammas.push(g); });
+            }
+          } catch(err){ console.warn('ループピーク検出エラー', err); }
+          const minPts = Math.max(10, target - 10);
+          const maxPts = Math.max(target, Math.min(target + 10, 300));
+          displayEnvelope = thinEnvelope(fullEnvelope, minPts, maxPts, mandatoryGammas);
+          console.info(`[thinEnvelope] (target=${target}) -> ${displayEnvelope.length} 点`);
         }
-        targetPoints = Math.max(10, Math.min(100, targetPoints)); // 10〜100点の範囲に制限
-        
-        displayEnvelope = thinEnvelopeUniform(fullEnvelope, targetPoints, mandatoryGammas);
-        console.info('[間引き] 包絡線点を '+fullEnvelope.length+' 点から '+displayEnvelope.length+' 点に間引き（間引き率:'+thinningRate+'%, 目標:'+targetPoints+'点）');
+      } else if(sliderEl){
+        // 旧スライダー互換: 間引き率 (0-100)
+        const thinningRate = parseInt(sliderEl.value,10);
+        if(Number.isFinite(thinningRate) && fullEnvelope.length > 100 && thinningRate > 10){
+          const mandatoryGammas = [];
+          if(Number.isFinite(analysisResults.delta_y)) mandatoryGammas.push(analysisResults.delta_y);
+          if(Number.isFinite(analysisResults.delta_u)) mandatoryGammas.push(analysisResults.delta_u);
+          try {
+            const loopGammas = detectLoopPeakGammas(rawData, side);
+            if(Array.isArray(loopGammas) && loopGammas.length){
+              loopGammas.forEach(g => { if(Number.isFinite(g)) mandatoryGammas.push(g); });
+            }
+          } catch(err){ console.warn('ループピーク検出エラー', err); }
+          let targetPoints;
+          if(thinningRate <= 50){
+            targetPoints = Math.round(100 - (thinningRate - 10) * (20 / 40));
+          } else {
+            targetPoints = Math.round(80 - (thinningRate - 50) * (70 / 50));
+          }
+          displayEnvelope = thinEnvelopeUniform(fullEnvelope, targetPoints, mandatoryGammas);
+          console.info(`[thinEnvelopeUniform] (rate=${thinningRate}) target=${targetPoints} -> ${displayEnvelope.length} 点`);
+        }
       }
 
-      envelopeData = displayEnvelope;
-  // 初期生成時点では未編集なので記録はしない
-
-      // Render results
+      envelopeData = displayEnvelope.map(p => ({...p}));
       renderPlot(envelopeData, analysisResults);
       renderResults(analysisResults);
-
       if(downloadExcelButton) downloadExcelButton.disabled = false;
-  if(generatePdfButton) generatePdfButton.disabled = false;
+      if(generatePdfButton) generatePdfButton.disabled = false;
       historyStack = [cloneEnvelope(envelopeData)];
       redoStack = [];
       updateHistoryButtons();
-    }catch(error){
-      console.error('計算エラー:', error);
-      appendLog('計算エラー(自動解析): ' + (error && error.stack ? error.stack : error.message));
+    } catch(err){
+      console.error('processDataDirect エラー:', err);
+      appendLog('計算エラー(自動解析): ' + (err && err.stack ? err.stack : err.message));
     }
   }
 
@@ -3107,6 +3109,28 @@
         const alpha = parseFloat(alpha_factor.value);
         const delta_u_max = parseFloat(max_ultimate_deformation.value);
         analysisResults = calculateJTCCMMetrics(envelopeData, delta_u_max, alpha);
+        // インポート直後も表示点数に合わせて間引きを適用（必要な場合）
+        try{
+          const el = document.getElementById('thin_target_points');
+          const v = el ? parseInt(el.value,10) : 50;
+          const target = (Number.isFinite(v) && v>0) ? v : 50;
+          if(envelopeData.length > target){
+            const minPts = Math.max(10, target - 10);
+            const maxPts = Math.max(target, Math.min(target + 10, 300));
+            const mandatoryGammas = [];
+            if(Number.isFinite(analysisResults.delta_y)) mandatoryGammas.push(analysisResults.delta_y);
+            if(Number.isFinite(analysisResults.delta_u)) mandatoryGammas.push(analysisResults.delta_u);
+            const side = getCurrentSide();
+            try{
+              const loopGammas = detectLoopPeakGammas(rawData || [], side);
+              if(Array.isArray(loopGammas) && loopGammas.length){ loopGammas.forEach(g => { if(Number.isFinite(g)) mandatoryGammas.push(g); }); }
+            }catch(_){/* noop */}
+            const thinned = thinEnvelope(envelopeData, minPts, maxPts, mandatoryGammas);
+            if(Array.isArray(thinned) && thinned.length >= 2){
+              envelopeData = thinned.map(p=>({...p}));
+            }
+          }
+        }catch(_){/* noop */}
         renderPlot(envelopeData, analysisResults);
         renderResults(analysisResults);
         // 履歴初期化
