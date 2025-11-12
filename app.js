@@ -1247,7 +1247,8 @@
       } else if(sliderEl){
         // 旧スライダー互換: 間引き率 (0-100)
         const thinningRate = parseInt(sliderEl.value,10);
-        if(Number.isFinite(thinningRate) && fullEnvelope.length > 100 && thinningRate > 10){
+        // 条件緩和: fullEnvelope.length が一定閾値(50)超 & thinningRate > 10 なら適用
+        if(Number.isFinite(thinningRate) && fullEnvelope.length > 50 && thinningRate > 10){
           const mandatoryGammas = [];
           if(Number.isFinite(analysisResults.delta_y)) mandatoryGammas.push(analysisResults.delta_y);
           if(Number.isFinite(analysisResults.delta_u)) mandatoryGammas.push(analysisResults.delta_u);
