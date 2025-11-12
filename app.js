@@ -1732,6 +1732,55 @@
     }catch(err){ console.warn('applyEnvelopeThinning failed', err); }
   }
 
+  // フル包絡線に対し UI (目標点数 / スライダー) を用いて表示用間引きを再適用
+  // Excelインポート後や側変更時に利用し、編集前の完全包絡線から再構築できるようにする
+  function reapplyDisplayThinning(fullEnvelope, side, metrics){
+    try{
+      if(!Array.isArray(fullEnvelope) || fullEnvelope.length === 0) return [];
+      let working = fullEnvelope.map(p=>({...p}));
+      const targetInputEl = document.getElementById('thin_target_points');
+      const sliderEl = document.getElementById('envelope_thinning_rate');
+
+      // 必須点候補の γ 集合 (δy, δu, ループ最大荷重点)
+      const mandatoryGammas = [];
+      try{
+        if(metrics && Number.isFinite(metrics.delta_y)) mandatoryGammas.push(metrics.delta_y);
+        if(metrics && Number.isFinite(metrics.delta_u)) mandatoryGammas.push(metrics.delta_u);
+      }catch(_){/* noop */}
+      try{
+        const loopGammas = detectLoopPeakGammas(rawData || [], side);
+        if(Array.isArray(loopGammas) && loopGammas.length){
+          loopGammas.forEach(g => { if(Number.isFinite(g)) mandatoryGammas.push(g); });
+        }
+      }catch(err){ console.warn('ループピーク検出失敗', err); }
+
+      // 1. 目標点数による Exact サンプリング
+      if(targetInputEl){
+        const target = parseInt(targetInputEl.value, 10);
+        if(Number.isFinite(target) && target > 5 && working.length > target){
+          working = sampleEnvelopeExact(working, target, mandatoryGammas);
+          console.info(`[reapplyDisplayThinning] target=${target} -> ${working.length} 点`);
+        }
+      }
+      // 2. スライダーによる追加間引き (均等サンプリング)
+      if(sliderEl){
+        const thinningRate = parseInt(sliderEl.value, 10);
+        if(Number.isFinite(thinningRate) && working.length > 50 && thinningRate > 10){
+          let targetPoints;
+          if(thinningRate <= 50){
+            targetPoints = Math.round(100 - (thinningRate - 10) * (20 / 40));
+          } else {
+            targetPoints = Math.round(80 - (thinningRate - 50) * (70 / 50));
+          }
+            // mandatoryGammas を維持しつつ均等化
+          working = thinEnvelopeUniform(working, targetPoints, mandatoryGammas);
+          console.info(`[reapplyDisplayThinning] slider rate=${thinningRate} target=${targetPoints} -> ${working.length} 点`);
+        }
+      }
+      return working.map(p=>({...p}));
+    }catch(err){ console.warn('reapplyDisplayThinning エラー', err); return fullEnvelope.map(p=>({...p})); }
+  }
+
   function generateEnvelope(data, side){
     try{
       // 片側抽出
