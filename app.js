@@ -1285,24 +1285,23 @@
       const sliderEl = typeof envelope_thinning_rate !== 'undefined' ? envelope_thinning_rate : null;
 
       if(targetInputEl){
-        // 新UI: 目標表示点数
+        // 新UI: 目標表示点数 (Exact サンプリング)
         const target = parseInt(targetInputEl.value,10);
         if(Number.isFinite(target) && target > 5 && fullEnvelope.length > target){
           const mandatoryGammas = [];
           if(Number.isFinite(analysisResults.delta_y)) mandatoryGammas.push(analysisResults.delta_y);
-            if(Number.isFinite(analysisResults.delta_u)) mandatoryGammas.push(analysisResults.delta_u);
+          if(Number.isFinite(analysisResults.delta_u)) mandatoryGammas.push(analysisResults.delta_u);
           try {
             const loopGammas = detectLoopPeakGammas(rawData, side);
             if(Array.isArray(loopGammas) && loopGammas.length){
               loopGammas.forEach(g => { if(Number.isFinite(g)) mandatoryGammas.push(g); });
             }
           } catch(err){ console.warn('ループピーク検出エラー', err); }
-          const minPts = Math.max(10, target - 10);
-          const maxPts = Math.max(target, Math.min(target + 10, 300));
-          displayEnvelope = thinEnvelope(fullEnvelope, minPts, maxPts, mandatoryGammas);
-          console.info(`[thinEnvelope] (target=${target}) -> ${displayEnvelope.length} 点`);
+          displayEnvelope = sampleEnvelopeExact(fullEnvelope, target, mandatoryGammas);
+          console.info(`[sampleEnvelopeExact] target=${target} -> ${displayEnvelope.length} 点`);
         }
-      } else if(sliderEl){
+      }
+      if(sliderEl){
         // 旧スライダー互換: 間引き率 (0-100)
         const thinningRate = parseInt(sliderEl.value,10);
         // 条件緩和: fullEnvelope.length が一定閾値(50)超 & thinningRate > 10 なら適用
@@ -1323,7 +1322,7 @@
             targetPoints = Math.round(80 - (thinningRate - 50) * (70 / 50));
           }
           displayEnvelope = thinEnvelopeUniform(fullEnvelope, targetPoints, mandatoryGammas);
-          console.info(`[thinEnvelopeUniform] (rate=${thinningRate}) target=${targetPoints} -> ${displayEnvelope.length} 点`);
+          console.info(`[thinEnvelopeUniform] rate=${thinningRate} target=${targetPoints} -> ${displayEnvelope.length} 点`);
         }
       }
 
