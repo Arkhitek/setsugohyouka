@@ -2598,15 +2598,17 @@
       xaxis: {
         title: '変形 δ (mm)',
         range: xRangeSafe,
-        autorange: false
+        autorange: false,
+        fixedrange: false // マウス操作でX軸範囲を自由に変更可能
       },
       yaxis: {
         title: '荷重 P (kN)',
         range: yRangeSafe,
-        autorange: false
+        autorange: false,
+        fixedrange: false // マウス操作でY軸範囲を自由に変更可能
       },
       hovermode: 'closest',
-      dragmode: 'pan', // デフォルトはパン操作
+      dragmode: 'zoom', // ズーム操作で縦横比を自由に変更可能（パンはShift+ドラッグ）
       showlegend: true,
       legend: {
         orientation: 'h',
