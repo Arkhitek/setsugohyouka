@@ -127,6 +127,10 @@
   const thin_target_points = document.getElementById('thin_target_points');
   const applyThinningButton = document.getElementById('applyThinningButton');
 
+  // UI 値の直前値を保持（編集済み状態でのリバート用）
+  let lastThinningRate = envelope_thinning_rate ? envelope_thinning_rate.value : '50';
+  let lastThinTarget = thin_target_points ? thin_target_points.value : '50';
+
   // ドラッグ移動モード（ボタンONの間のみ点ドラッグ可能。パン/ズームを抑止）
   let dragMoveEnabled = false;
   // 範囲選択モード（ONの間はBox/Lassoを有効化し、削除ボタンで複数削除）
@@ -670,22 +674,34 @@
     };
     updateThinningLabel();
     envelope_thinning_rate.addEventListener('input', () => {
+      // 編集済みまたはインポート済み（編集フラグ）の場合は間引き変更を禁止
+      const side = getCurrentSide();
+      if(editedDirtyBySide[side]){
+        // UIを元に戻す
+        try{ envelope_thinning_rate.value = lastThinningRate; }catch(_){ }
+        updateThinningLabel();
+        alert('この包絡線は手動編集またはインポート済みのため、スライダーによる間引き変更はできません。');
+        appendLog('間引き変更をブロックしました（編集済み/インポート済み）');
+        return;
+      }
+
       updateThinningLabel();
       // 通常は rawData があるなら再解析をスケジュール
       if(rawData && rawData.length>=3){
+        lastThinningRate = envelope_thinning_rate.value;
         scheduleAutoRun(300); // 少し長めの待ち時間で再解析
         return;
       }
       // rawData が無い場合（Excelインポートで包絡線のみ取り込んだ等）は
       // originalEnvelopeBySide キャッシュがあればそれを使って表示用間引きを即時再適用する
       try{
-        const side = getCurrentSide();
         const full = originalEnvelopeBySide[side];
         if(Array.isArray(full) && full.length > 2){
           const metrics = calculateJTCCMMetrics(full, parseFloat(max_ultimate_deformation.value), parseFloat(alpha_factor.value));
           envelopeData = reapplyDisplayThinning(full, side, metrics);
           renderPlot(envelopeData, metrics);
           renderResults(metrics);
+          lastThinningRate = envelope_thinning_rate.value;
           appendLog('表示間引きを再適用（キャッシュ包絡線）: ' + envelopeData.length + ' 点');
         }
       }catch(err){ console.warn('thinning slider handler error', err); }
@@ -710,24 +726,42 @@
   // 間引き（再サンプリング）適用
   if(applyThinningButton){
     applyThinningButton.addEventListener('click', () => {
-      try{ applyEnvelopeThinning(); }catch(e){ console.warn('apply thinning error', e); }
+      try{
+        const side = getCurrentSide();
+        if(editedDirtyBySide[side]){
+          alert('この包絡線は手動編集またはインポート済みのため、間引きを適用できません');
+          appendLog('間引き適用をブロックしました（編集済み/インポート済み）');
+          return;
+        }
+        applyEnvelopeThinning();
+      }catch(e){ console.warn('apply thinning error', e); }
     });
   }
   if(thin_target_points){
     thin_target_points.addEventListener('change', () => {
+      // 編集済み/インポート済みの場合は終了（警告）
+      const side = getCurrentSide();
+      if(editedDirtyBySide[side]){
+        try{ thin_target_points.value = lastThinTarget; }catch(_){ }
+        alert('この包絡線は手動編集またはインポート済みのため、目標点数の変更はできません。');
+        appendLog('目標点数変更をブロックしました（編集済み/インポート済み）');
+        return;
+      }
+
       // 値変更で即適用（ユーザーの意図が明確なため）
       try{
         // 可能であればフル包絡線から再適用して点数の増加にも対応
-        const side = getCurrentSide();
         const full = originalEnvelopeBySide[side];
         if(Array.isArray(full) && full.length > 2){
           const metrics = calculateJTCCMMetrics(full, parseFloat(max_ultimate_deformation.value), parseFloat(alpha_factor.value));
           envelopeData = reapplyDisplayThinning(full, side, metrics);
           renderPlot(envelopeData, metrics);
           renderResults(metrics);
+          lastThinTarget = thin_target_points.value;
           appendLog('表示間引き(目標)を再適用（キャッシュ包絡線）: ' + envelopeData.length + ' 点');
         } else {
           applyEnvelopeThinning();
+          lastThinTarget = thin_target_points.value;
         }
       }catch(e){ console.warn('apply thinning error', e); }
     });
