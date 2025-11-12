@@ -28,6 +28,64 @@
     editedDirtyBySide[side] = !!(editedEnvelopeBySide[side] && editedEnvelopeBySide[side].length >= 2);
   }
 
+  // 目標点数に極力合わせるシンプルな均等弧長サンプリング
+  function sampleEnvelopeExact(envelope, targetPoints, mandatoryGammas){
+    try{
+      if(!Array.isArray(envelope) || envelope.length <= targetPoints) return envelope.map(pt=>({...pt}));
+      const pts = envelope.map(pt => ({x: pt.gamma, y: pt.Load}));
+      // 弧長配列
+      const arc = [0];
+      for(let i=1;i<pts.length;i++){
+        const dx = pts[i].x - pts[i-1].x;
+        const dy = pts[i].y - pts[i-1].y;
+        arc.push(arc[i-1] + Math.hypot(dx, dy));
+      }
+      const total = arc[arc.length-1];
+      // 必須点
+      const mandatory = new Set();
+      mandatory.add(0);
+      mandatory.add(pts.length-1);
+      // 最大荷重点
+      let pmaxIdx = 0, pmaxAbs=-Infinity;
+      for(let i=0;i<pts.length;i++){ const a = Math.abs(pts[i].y); if(a>pmaxAbs){ pmaxAbs=a; pmaxIdx=i; } }
+      mandatory.add(pmaxIdx);
+      if(Array.isArray(mandatoryGammas)){
+        mandatoryGammas.forEach(gTarget => {
+          if(!Number.isFinite(gTarget)) return;
+          let best=-1, bestDiff=Infinity;
+          for(let i=0;i<pts.length;i++){
+            const d = Math.abs(pts[i].x - gTarget);
+            if(d < bestDiff){ bestDiff=d; best=i; }
+          }
+          if(best>=0) mandatory.add(best);
+        });
+      }
+      // ループピーク: 局所最大（絶対値）も追加（ただし過剰なら後で調整）
+      for(let i=1;i<pts.length-1;i++){
+        const y0=Math.abs(pts[i-1].y), y1=Math.abs(pts[i].y), y2=Math.abs(pts[i+1].y);
+        if(y1>=y0 && y1>=y2) mandatory.add(i);
+      }
+      if(mandatory.size >= targetPoints){
+        return Array.from(mandatory).sort((a,b)=>a-b).slice(0,targetPoints).map(i=>({...envelope[i]}));
+      }
+      const need = targetPoints - mandatory.size;
+      const selected = new Set(mandatory);
+      // 均等弧長ステップ
+      const step = total / (need + 1);
+      for(let j=1;j<=need;j++){
+        const tArc = j * step;
+        let best=-1, bestDiff=Infinity;
+        for(let i=0;i<pts.length;i++){
+          if(selected.has(i)) continue;
+          const d = Math.abs(arc[i] - tArc);
+          if(d < bestDiff){ bestDiff=d; best=i; }
+        }
+        if(best>=0) selected.add(best);
+      }
+      return Array.from(selected).sort((a,b)=>a-b).map(i=>({...envelope[i]}));
+    }catch(err){ console.warn('sampleEnvelopeExact エラー', err); return envelope; }
+  }
+
   // === Elements ===
   const gammaInput = document.getElementById('gammaInput');
   const loadInput = document.getElementById('loadInput');
@@ -1636,135 +1694,50 @@
   }
 
   function generateEnvelope(data, side){
-    // Filter data based on selected side（符号で片側のみ抽出）
-    let filteredData;
-    if(side === 'positive'){
-      filteredData = data.filter(pt => pt.gamma >= 0 && pt.Load >= 0);
-    } else {
-      filteredData = data.filter(pt => pt.gamma <= 0 && pt.Load <= 0);
-    }
-
-    // 元データ順を維持
-    if(!filteredData || filteredData.length === 0) return [];
-
-    // ルール準拠の包絡線構築:
-    // 1) 最初の立ち上がりからピーク(Pmax)まで: γは非減少、荷重は非減少（小さなノイズは無視）で結ぶ。
-    // 2) Pmax以降: 計測点を結ぶが、破壊による急激な低下点はスキップ可能。
-    const abs = (v) => Math.abs(v);
-    const n = filteredData.length;
-
-      const minPts = Math.max(10, Math.min(target - 10, target));
-      const maxPts = Math.max(target, Math.min(target + 10, 300));
-      const mandatoryGammas = [];
-      try{
-        if(Number.isFinite(analysisResults?.delta_y)) mandatoryGammas.push(analysisResults.delta_y);
-        if(Number.isFinite(analysisResults?.delta_u)) mandatoryGammas.push(analysisResults.delta_u);
-        const side = getCurrentSide();
-        const loopGammas = detectLoopPeakGammas(rawData || [], side);
-        if(Array.isArray(loopGammas) && loopGammas.length){
-          loopGammas.forEach(g => { if(Number.isFinite(g)) mandatoryGammas.push(g); });
-        }
-      }catch(err){ console.warn('再間引き: ループピーク検出失敗', err); }
-      const thinned = sampleEnvelopeExact(envelopeData, target, mandatoryGammas);
-    for(let i=0;i<=idxPmax;i++){
-      const pt = filteredData[i];
-      const g = abs(pt.gamma);
-      const L = abs(pt.Load);
-      if(g + 1e-15 <= lastG) continue; // γは非減少を維持
-      if(L + LOAD_TOL < lastL) continue; // 荷重が明確に低下する点はスキップ
-      env.push({...pt});
-      lastG = g; lastL = Math.max(lastL, L);
-    }
-    // Pmax点を必ず含める（未含有なら追加）
-
-  // 目標点数に極力合わせるシンプルな均等弧長サンプリング
-  function sampleEnvelopeExact(envelope, targetPoints, mandatoryGammas){
     try{
-      if(!Array.isArray(envelope) || envelope.length <= targetPoints) return envelope.map(pt=>({...pt}));
-      const pts = envelope.map(pt => ({x: pt.gamma, y: pt.Load}));
-      // 弧長配列
-      const arc = [0];
-      for(let i=1;i<pts.length;i++){
-        const dx = pts[i].x - pts[i-1].x;
-        const dy = pts[i].y - pts[i-1].y;
-        arc.push(arc[i-1] + Math.hypot(dx, dy));
+      // 片側抽出
+      let filteredData;
+      if(side === 'positive'){
+        filteredData = data.filter(pt => Number.isFinite(pt.gamma) && Number.isFinite(pt.Load) && pt.gamma >= 0 && pt.Load >= 0);
+      } else {
+        filteredData = data.filter(pt => Number.isFinite(pt.gamma) && Number.isFinite(pt.Load) && pt.gamma <= 0 && pt.Load <= 0);
       }
-      const total = arc[arc.length-1];
-      // 必須点
-      const mandatory = new Set();
-      mandatory.add(0);
-      mandatory.add(pts.length-1);
-      // 最大荷重点
-      let pmaxIdx = 0, pmaxAbs=-Infinity;
-      for(let i=0;i<pts.length;i++){ const a = Math.abs(pts[i].y); if(a>pmaxAbs){ pmaxAbs=a; pmaxIdx=i; } }
-      mandatory.add(pmaxIdx);
-      if(Array.isArray(mandatoryGammas)){
-        mandatoryGammas.forEach(gTarget => {
-          if(!Number.isFinite(gTarget)) return;
-          let best=-1, bestDiff=Infinity;
-          for(let i=0;i<pts.length;i++){
-            const d = Math.abs(pts[i].x - gTarget);
-            if(d < bestDiff){ bestDiff=d; best=i; }
-          }
-          if(best>=0) mandatory.add(best);
-        });
-      }
-      // ループピーク: 局所最大（絶対値）も追加（ただし過剰なら後で調整）
-      for(let i=1;i<pts.length-1;i++){
-        const y0=Math.abs(pts[i-1].y), y1=Math.abs(pts[i].y), y2=Math.abs(pts[i+1].y);
-        if(y1>=y0 && y1>=y2) mandatory.add(i);
-      }
-      if(mandatory.size >= targetPoints){
-        return Array.from(mandatory).sort((a,b)=>a-b).slice(0,targetPoints).map(i=>({...envelope[i]}));
-      }
-      const need = targetPoints - mandatory.size;
-      const selected = new Set(mandatory);
-      // 均等弧長ステップ
-      const step = total / (need + 1);
-      for(let j=1;j<=need;j++){
-        const tArc = j * step;
-        let best=-1, bestDiff=Infinity;
-        for(let i=0;i<pts.length;i++){
-          if(selected.has(i)) continue;
-          const d = Math.abs(arc[i] - tArc);
-          if(d < bestDiff){ bestDiff=d; best=i; }
-        }
-        if(best>=0) selected.add(best);
-      }
-      return Array.from(selected).sort((a,b)=>a-b).map(i=>({...envelope[i]}));
-    }catch(err){ console.warn('sampleEnvelopeExact エラー', err); return envelope; }
-  }
-    if(env.length === 0 || env[env.length-1] !== filteredData[idxPmax]){
-      env.push({...filteredData[idxPmax]});
-      lastG = abs(filteredData[idxPmax].gamma);
-      lastL = abs(filteredData[idxPmax].Load);
-    }
+      if(!filteredData || filteredData.length === 0) return [];
 
-    // 2) Pmax以降: 計測点を結ぶ。ただし急激な低下点はスキップ可。
-    for(let i=idxPmax+1;i<n;i++){
-      const pt = filteredData[i];
-      const g = abs(pt.gamma);
-      const L = abs(pt.Load);
-      if(g + 1e-15 <= lastG) continue; // γ非減少
-      // 破壊による急低下をスキップ（全体状況に応じ、緩い条件）
-      const gstep = g - lastG;
-      if(lastL > 0 && L < lastL * (1 - ABRUPT_DROP_RATIO) && gstep < ABRUPT_DROP_GSTEP){
-        // スキップ（必要に応じてログ）
-        continue;
+      const abs = (v)=>Math.abs(v);
+      // 最大荷重点 index
+      let idxPmax = 0; let maxAbs = -Infinity;
+      for(let i=0;i<filteredData.length;i++){
+        const a = abs(filteredData[i].Load);
+        if(a > maxAbs){ maxAbs = a; idxPmax = i; }
       }
-      env.push({...pt});
-      lastG = g; lastL = L;
-    }
 
-    // フォールバック: 何らかの理由で空の場合は γ単調抽出へ
-    if(env.length === 0){
-      let maxG = -Infinity; const simpler = [];
-      for(const pt of filteredData){
-        const g = abs(pt.gamma); if(g >= maxG){ simpler.push({...pt}); maxG = g; }
+      const env = [];
+      const LOAD_TOL = 1e-9;
+      let lastG = -Infinity; let lastL = -Infinity;
+      // 立ち上がり〜Pmax: γ単調増加 & 荷重非減少（緩い条件）
+      for(let i=0;i<=idxPmax;i++){
+        const pt = filteredData[i];
+        const g = abs(pt.gamma); const L = abs(pt.Load);
+        if(g + 1e-12 <= lastG) continue; // γ非減少
+        if(L + LOAD_TOL < lastL) continue; // 荷重大きく低下はスキップ
+        env.push({...pt});
+        lastG = g; lastL = Math.max(lastL, L);
       }
-      return simpler.length ? simpler : filteredData;
-    }
-    return env;
+      // Pmax 未含なら追加
+      if(!env.some(p => p.gamma === filteredData[idxPmax].gamma && p.Load === filteredData[idxPmax].Load)){
+        const p = filteredData[idxPmax]; env.push({...p}); lastG = abs(p.gamma); lastL = abs(p.Load);
+      }
+      // Pmax以降: γ単調条件のみ緩めて追加（急減少は許容: 解析用には後段で処理）
+      for(let i=idxPmax+1;i<filteredData.length;i++){
+        const pt = filteredData[i];
+        const g = abs(pt.gamma);
+        if(g + 1e-12 <= lastG) continue;
+        env.push({...pt});
+        lastG = g;
+      }
+      return env;
+    }catch(err){ console.warn('generateEnvelope エラー', err); return []; }
   }
 
   // 原データからループ（反転点）を検出し、各ループの最大荷重点のγを返す
