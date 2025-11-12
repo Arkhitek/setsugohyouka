@@ -126,6 +126,7 @@
   // 表示間引き（包絡線点数）
   const thin_target_points = document.getElementById('thin_target_points');
   const applyThinningButton = document.getElementById('applyThinningButton');
+  const resetEnvelopeButton = document.getElementById('resetEnvelopeButton');
 
   // UI 値の直前値を保持（編集済み状態でのリバート用）
   let lastThinningRate = envelope_thinning_rate ? envelope_thinning_rate.value : '50';
@@ -721,6 +722,50 @@
   if(importExcelButton && importExcelInput){
     importExcelButton.addEventListener('click', () => importExcelInput.click());
     importExcelInput.addEventListener('change', handleImportExcelFile);
+  }
+  if(resetEnvelopeButton){
+    resetEnvelopeButton.addEventListener('click', () => {
+      try{
+        // 優先: rawData があればそこからフル包絡線を生成
+        if(Array.isArray(rawData) && rawData.length >= 3){
+          const side = getCurrentSide();
+          const full = generateEnvelope(rawData, side);
+          if(Array.isArray(full) && full.length >= 2){
+            // フル包絡線をキャッシュに保存
+            originalEnvelopeBySide[side] = full.map(p=>({...p}));
+            // 編集履歴をクリア
+            editedEnvelopeBySide[side] = null;
+            editedDirtyBySide[side] = false;
+            // 再解析（指標はフル包絡線で計算）
+            const alpha = parseFloat(alpha_factor.value);
+            const delta_u_max = parseFloat(max_ultimate_deformation.value);
+            analysisResults = calculateJTCCMMetrics(full, delta_u_max, alpha);
+            envelopeData = reapplyDisplayThinning(full, side, analysisResults);
+            renderPlot(envelopeData, analysisResults);
+            renderResults(analysisResults);
+            historyStack = [cloneEnvelope(envelopeData)]; redoStack = []; updateHistoryButtons();
+            appendLog('包絡線を生データから再解析してリセットしました');
+            return;
+          }
+        }
+        // rawData がなければ originalEnvelopeBySide のキャッシュを使う
+        const side2 = getCurrentSide();
+        const cached = originalEnvelopeBySide[side2];
+        if(Array.isArray(cached) && cached.length >= 2){
+          // 編集履歴をクリア
+          editedEnvelopeBySide[side2] = null;
+          editedDirtyBySide[side2] = false;
+          analysisResults = calculateJTCCMMetrics(cached, parseFloat(max_ultimate_deformation.value), parseFloat(alpha_factor.value));
+          envelopeData = reapplyDisplayThinning(cached, side2, analysisResults);
+          renderPlot(envelopeData, analysisResults);
+          renderResults(analysisResults);
+          historyStack = [cloneEnvelope(envelopeData)]; redoStack = []; updateHistoryButtons();
+          appendLog('キャッシュ包絡線から復元してリセットしました');
+          return;
+        }
+        alert('リセットできるフル包絡線データが見つかりません（生データまたはキャッシュが必要です）');
+      }catch(err){ console.error('resetEnvelope error', err); appendLog('包絡線リセットに失敗しました'); }
+    });
   }
 
   // 間引き（再サンプリング）適用
