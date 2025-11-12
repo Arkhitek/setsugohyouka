@@ -7,7 +7,10 @@
   // === State ===
   let rawData = [];
   let header = [];
-  let envelopeData = null;
+  // envelopeData: 現在表示・編集中の包絡線（表示用に間引き済みの場合あり）
+  let envelopeData = [];
+  // インポートや再計算前のフル包絡線保持（再間引きで点数を増やす際に利用）
+  let originalEnvelopeBySide = {}; // side -> full envelope array
   let analysisResults = {};
   let relayoutHandlerAttached = false; // Plotly autoscale対策のイベント重複防止
   // イベントハンドラ参照（重複登録防止用）
@@ -3114,6 +3117,16 @@
       });
       if(newEnv.length < 2){ alert('Envelope シートに有効なデータが不足しています'); return; }
       envelopeData = newEnv;
+      envelopeData = newEnv;
+      // フル包絡線を側別キャッシュへ保持
+      const inferredSide = (function(){
+        for(const pt of newEnv){
+          if(Number.isFinite(pt.Load) && pt.Load !== 0) return pt.Load > 0 ? 'positive' : 'negative';
+          if(Number.isFinite(pt.gamma) && pt.gamma !== 0) return pt.gamma > 0 ? 'positive' : 'negative';
+        }
+        return getCurrentSide();
+      })();
+      originalEnvelopeBySide[inferredSide] = newEnv.map(p=>({...p}));
       // 取り込んだ包絡線の側を推定してキャッシュ
       try{
         const sign = (function(){
@@ -3170,32 +3183,15 @@
         }
       }
       // 解析再計算
+      // 解析再計算（指標は必ずフル包絡線で）
       if(envelopeData.length){
         const alpha = parseFloat(alpha_factor.value);
         const delta_u_max = parseFloat(max_ultimate_deformation.value);
-        analysisResults = calculateJTCCMMetrics(envelopeData, delta_u_max, alpha);
-        // インポート直後も表示点数に合わせて間引きを適用（必要な場合）
-        try{
-          const el = document.getElementById('thin_target_points');
-          const v = el ? parseInt(el.value,10) : 50;
-          const target = (Number.isFinite(v) && v>0) ? v : 50;
-          if(envelopeData.length > target){
-            const minPts = Math.max(10, target - 10);
-            const maxPts = Math.max(target, Math.min(target + 10, 300));
-            const mandatoryGammas = [];
-            if(Number.isFinite(analysisResults.delta_y)) mandatoryGammas.push(analysisResults.delta_y);
-            if(Number.isFinite(analysisResults.delta_u)) mandatoryGammas.push(analysisResults.delta_u);
-            const side = getCurrentSide();
-            try{
-              const loopGammas = detectLoopPeakGammas(rawData || [], side);
-              if(Array.isArray(loopGammas) && loopGammas.length){ loopGammas.forEach(g => { if(Number.isFinite(g)) mandatoryGammas.push(g); }); }
-            }catch(_){/* noop */}
-            const thinned = thinEnvelope(envelopeData, minPts, maxPts, mandatoryGammas);
-            if(Array.isArray(thinned) && thinned.length >= 2){
-              envelopeData = thinned.map(p=>({...p}));
-            }
-          }
-        }catch(_){/* noop */}
+        const sideNow = getCurrentSide();
+        const fullForMetrics = originalEnvelopeBySide[sideNow] ? originalEnvelopeBySide[sideNow] : envelopeData;
+        analysisResults = calculateJTCCMMetrics(fullForMetrics, delta_u_max, alpha);
+        // 表示用間引き
+        envelopeData = reapplyDisplayThinning(fullForMetrics, sideNow, analysisResults);
         renderPlot(envelopeData, analysisResults);
         renderResults(analysisResults);
         // 履歴初期化
@@ -3311,6 +3307,7 @@
       let bestT = 0;
       
       // 全線分を走査して最小距離のものを探す
+
       for(let i = 0; i < filteredData.length - 1; i++){
         const p1 = filteredData[i];
         const p2 = filteredData[i + 1];
@@ -3352,6 +3349,7 @@
       if(bestSegmentIndex >= 0){
         const p1 = filteredData[bestSegmentIndex];
         const p2 = filteredData[bestSegmentIndex + 1];
+
         
         return {
           gamma: p1.gamma + bestT * (p2.gamma - p1.gamma),
@@ -3365,6 +3363,7 @@
       return null;
     }
   }
+
 
   // 実験データ折れ線に対する最近傍点を探索し、ピクセル距離がthresholdPx以下ならデータ座標を返す
   function findNearestRawDataSnap(gamma, load, xaxis, yaxis, raw, thresholdPx){
