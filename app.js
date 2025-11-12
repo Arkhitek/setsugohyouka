@@ -1653,22 +1653,19 @@
     const abs = (v) => Math.abs(v);
     const n = filteredData.length;
 
-    // グローバル最大荷重(Pmax)のインデックス
-    let idxPmax = 0; let maxAbsLoad = -Infinity; let maxAbsGamma = 0;
-    for(let i=0;i<n;i++){
-      const L = abs(filteredData[i].Load);
-      if(L > maxAbsLoad){ maxAbsLoad = L; idxPmax = i; }
-      const g = abs(filteredData[i].gamma); if(g>maxAbsGamma) maxAbsGamma = g;
-    }
-
-    const env = [];
-    const LOAD_TOL = 0.005 * maxAbsLoad; // 0.5% 許容
-    const ABRUPT_DROP_RATIO = 0.4;       // 40% 以上の急低下
-    const ABRUPT_DROP_GSTEP = Math.max(1e-9, 0.005 * maxAbsGamma); // γ差が全体の0.5%未満
-
-    // 1) 立ち上がり～Pmax まで: γ非減少 & 荷重非減少で上包絡を抽出
-    let lastG = -Infinity;
-    let lastL = -Infinity;
+      const minPts = Math.max(10, Math.min(target - 10, target));
+      const maxPts = Math.max(target, Math.min(target + 10, 300));
+      const mandatoryGammas = [];
+      try{
+        if(Number.isFinite(analysisResults?.delta_y)) mandatoryGammas.push(analysisResults.delta_y);
+        if(Number.isFinite(analysisResults?.delta_u)) mandatoryGammas.push(analysisResults.delta_u);
+        const side = getCurrentSide();
+        const loopGammas = detectLoopPeakGammas(rawData || [], side);
+        if(Array.isArray(loopGammas) && loopGammas.length){
+          loopGammas.forEach(g => { if(Number.isFinite(g)) mandatoryGammas.push(g); });
+        }
+      }catch(err){ console.warn('再間引き: ループピーク検出失敗', err); }
+      const thinned = sampleEnvelopeExact(envelopeData, target, mandatoryGammas);
     for(let i=0;i<=idxPmax;i++){
       const pt = filteredData[i];
       const g = abs(pt.gamma);
@@ -1679,6 +1676,64 @@
       lastG = g; lastL = Math.max(lastL, L);
     }
     // Pmax点を必ず含める（未含有なら追加）
+
+  // 目標点数に極力合わせるシンプルな均等弧長サンプリング
+  function sampleEnvelopeExact(envelope, targetPoints, mandatoryGammas){
+    try{
+      if(!Array.isArray(envelope) || envelope.length <= targetPoints) return envelope.map(pt=>({...pt}));
+      const pts = envelope.map(pt => ({x: pt.gamma, y: pt.Load}));
+      // 弧長配列
+      const arc = [0];
+      for(let i=1;i<pts.length;i++){
+        const dx = pts[i].x - pts[i-1].x;
+        const dy = pts[i].y - pts[i-1].y;
+        arc.push(arc[i-1] + Math.hypot(dx, dy));
+      }
+      const total = arc[arc.length-1];
+      // 必須点
+      const mandatory = new Set();
+      mandatory.add(0);
+      mandatory.add(pts.length-1);
+      // 最大荷重点
+      let pmaxIdx = 0, pmaxAbs=-Infinity;
+      for(let i=0;i<pts.length;i++){ const a = Math.abs(pts[i].y); if(a>pmaxAbs){ pmaxAbs=a; pmaxIdx=i; } }
+      mandatory.add(pmaxIdx);
+      if(Array.isArray(mandatoryGammas)){
+        mandatoryGammas.forEach(gTarget => {
+          if(!Number.isFinite(gTarget)) return;
+          let best=-1, bestDiff=Infinity;
+          for(let i=0;i<pts.length;i++){
+            const d = Math.abs(pts[i].x - gTarget);
+            if(d < bestDiff){ bestDiff=d; best=i; }
+          }
+          if(best>=0) mandatory.add(best);
+        });
+      }
+      // ループピーク: 局所最大（絶対値）も追加（ただし過剰なら後で調整）
+      for(let i=1;i<pts.length-1;i++){
+        const y0=Math.abs(pts[i-1].y), y1=Math.abs(pts[i].y), y2=Math.abs(pts[i+1].y);
+        if(y1>=y0 && y1>=y2) mandatory.add(i);
+      }
+      if(mandatory.size >= targetPoints){
+        return Array.from(mandatory).sort((a,b)=>a-b).slice(0,targetPoints).map(i=>({...envelope[i]}));
+      }
+      const need = targetPoints - mandatory.size;
+      const selected = new Set(mandatory);
+      // 均等弧長ステップ
+      const step = total / (need + 1);
+      for(let j=1;j<=need;j++){
+        const tArc = j * step;
+        let best=-1, bestDiff=Infinity;
+        for(let i=0;i<pts.length;i++){
+          if(selected.has(i)) continue;
+          const d = Math.abs(arc[i] - tArc);
+          if(d < bestDiff){ bestDiff=d; best=i; }
+        }
+        if(best>=0) selected.add(best);
+      }
+      return Array.from(selected).sort((a,b)=>a-b).map(i=>({...envelope[i]}));
+    }catch(err){ console.warn('sampleEnvelopeExact エラー', err); return envelope; }
+  }
     if(env.length === 0 || env[env.length-1] !== filteredData[idxPmax]){
       env.push({...filteredData[idxPmax]});
       lastG = abs(filteredData[idxPmax].gamma);
