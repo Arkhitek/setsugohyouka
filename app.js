@@ -1668,9 +1668,6 @@
         appendLog('間引き対象外: 既に点数が目標以下です ('+envelopeData.length+' <= '+target+')');
         return;
       }
-      const minPts = Math.max(10, Math.min(target - 10, target));
-      const maxPts = Math.max(target, Math.min(target + 10, 300));
-
       // 重要点（保持）: δy, δu, ループ最大荷重点
       const mandatoryGammas = [];
       try{
@@ -1683,13 +1680,12 @@
         if(Array.isArray(loops) && loops.length){ loops.forEach(g => { if(Number.isFinite(g)) mandatoryGammas.push(g); }); }
       }catch(_){/* noop */}
 
-      const thinned = thinEnvelope(envelopeData, minPts, maxPts, mandatoryGammas);
+      const thinned = sampleEnvelopeExact(envelopeData, target, mandatoryGammas);
       if(!Array.isArray(thinned) || thinned.length < 2){ return; }
-      // 履歴保存・適用・再計算
       pushHistory(envelopeData);
       envelopeData = thinned.map(p=>({...p}));
       recalculateFromEnvelope(envelopeData);
-      appendLog('包絡線の表示間引きを適用: '+envelopeData.length+' 点');
+      appendLog('包絡線の表示間引き(Exact)を適用: '+envelopeData.length+' 点 / 目標 '+target);
     }catch(err){ console.warn('applyEnvelopeThinning failed', err); }
   }
 
