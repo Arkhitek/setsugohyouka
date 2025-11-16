@@ -2938,6 +2938,8 @@
           selectedPointIndex = -1;
           window._selectedEnvelopePoint = -1;
           recalculateFromEnvelope(editableEnvelope);
+          // ポップアップが開いていれば閉じる（ボタン操作時と同様の挙動にする）
+          try{ if(pointEditDialog && pointEditDialog.style.display !== 'none') closePointEditDialog(); }catch(_){ }
           return;
         }
         // 単一点選択の場合（既存の動作）
@@ -2945,6 +2947,8 @@
           deleteEnvelopePoint(selectedPointIndex, editableEnvelope);
           selectedPointIndex = -1;
           window._selectedEnvelopePoint = -1;
+          // ポップアップが開いていれば閉じる（ボタン操作時と同様の挙動にする）
+          try{ if(pointEditDialog && pointEditDialog.style.display !== 'none') closePointEditDialog(); }catch(_){ }
         }
         return;
       }
